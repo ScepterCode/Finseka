@@ -88,7 +88,7 @@ function OrganizationSetup({ defaultName }: { defaultName: string }) {
       const { error } = await supabase.rpc("setup_organization", {
         _org_name: orgName,
         _full_name: name,
-        _phone: phone || null,
+        _phone: phone || undefined,
       });
       if (error) throw error;
     },
