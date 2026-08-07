@@ -343,8 +343,8 @@ function MemberList({
   tone,
 }: {
   members: Member[];
-  note?: (m: Member) => string;
-  action?: (m: Member) => React.ReactNode;
+  note?: ((m: Member) => string) | undefined;
+  action?: ((m: Member) => React.ReactNode) | undefined;
   tone: "good" | "bad" | "muted";
 }) {
   if (members.length === 0) {
