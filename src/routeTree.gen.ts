@@ -13,7 +13,14 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedLedgerRouteImport } from './routes/_authenticated/ledger'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedContributionsIndexRouteImport } from './routes/_authenticated/contributions.index'
+import { Route as AuthenticatedContributionsContributionIdRouteImport } from './routes/_authenticated/contributions.$contributionId'
+import { Route as AuthenticatedDuesIndexRouteImport } from './routes/_authenticated/dues.index'
+import { Route as AuthenticatedDuesDueIdRouteImport } from './routes/_authenticated/dues.$dueId'
 import { Route as AuthenticatedMembersIndexRouteImport } from './routes/_authenticated/members.index'
+import { Route as AuthenticatedMembersMemberIdRouteImport } from './routes/_authenticated/members.$memberId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,10 +41,48 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedLedgerRoute = AuthenticatedLedgerRouteImport.update({
+  id: '/ledger',
+  path: '/ledger',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedContributionsIndexRoute =
+  AuthenticatedContributionsIndexRouteImport.update({
+    id: '/contributions/',
+    path: '/contributions/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedContributionsContributionIdRoute =
+  AuthenticatedContributionsContributionIdRouteImport.update({
+    id: '/contributions/$contributionId',
+    path: '/contributions/$contributionId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedDuesIndexRoute = AuthenticatedDuesIndexRouteImport.update({
+  id: '/dues/',
+  path: '/dues/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDuesDueIdRoute = AuthenticatedDuesDueIdRouteImport.update({
+  id: '/dues/$dueId',
+  path: '/dues/$dueId',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedMembersIndexRoute =
   AuthenticatedMembersIndexRouteImport.update({
     id: '/members/',
     path: '/members/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedMembersMemberIdRoute =
+  AuthenticatedMembersMemberIdRouteImport.update({
+    id: '/members/$memberId',
+    path: '/members/$memberId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 
@@ -45,12 +90,26 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/ledger': typeof AuthenticatedLedgerRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/contributions/$contributionId': typeof AuthenticatedContributionsContributionIdRoute
+  '/dues/$dueId': typeof AuthenticatedDuesDueIdRoute
+  '/members/$memberId': typeof AuthenticatedMembersMemberIdRoute
+  '/contributions/': typeof AuthenticatedContributionsIndexRoute
+  '/dues/': typeof AuthenticatedDuesIndexRoute
   '/members/': typeof AuthenticatedMembersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/ledger': typeof AuthenticatedLedgerRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/contributions/$contributionId': typeof AuthenticatedContributionsContributionIdRoute
+  '/dues/$dueId': typeof AuthenticatedDuesDueIdRoute
+  '/members/$memberId': typeof AuthenticatedMembersMemberIdRoute
+  '/contributions': typeof AuthenticatedContributionsIndexRoute
+  '/dues': typeof AuthenticatedDuesIndexRoute
   '/members': typeof AuthenticatedMembersIndexRoute
 }
 export interface FileRoutesById {
@@ -59,19 +118,55 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/ledger': typeof AuthenticatedLedgerRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/contributions/$contributionId': typeof AuthenticatedContributionsContributionIdRoute
+  '/_authenticated/dues/$dueId': typeof AuthenticatedDuesDueIdRoute
+  '/_authenticated/members/$memberId': typeof AuthenticatedMembersMemberIdRoute
+  '/_authenticated/contributions/': typeof AuthenticatedContributionsIndexRoute
+  '/_authenticated/dues/': typeof AuthenticatedDuesIndexRoute
   '/_authenticated/members/': typeof AuthenticatedMembersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/dashboard' | '/members/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/dashboard'
+    | '/ledger'
+    | '/settings'
+    | '/contributions/$contributionId'
+    | '/dues/$dueId'
+    | '/members/$memberId'
+    | '/contributions/'
+    | '/dues/'
+    | '/members/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/dashboard' | '/members'
+  to:
+    | '/'
+    | '/auth'
+    | '/dashboard'
+    | '/ledger'
+    | '/settings'
+    | '/contributions/$contributionId'
+    | '/dues/$dueId'
+    | '/members/$memberId'
+    | '/contributions'
+    | '/dues'
+    | '/members'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/dashboard'
+    | '/_authenticated/ledger'
+    | '/_authenticated/settings'
+    | '/_authenticated/contributions/$contributionId'
+    | '/_authenticated/dues/$dueId'
+    | '/_authenticated/members/$memberId'
+    | '/_authenticated/contributions/'
+    | '/_authenticated/dues/'
     | '/_authenticated/members/'
   fileRoutesById: FileRoutesById
 }
@@ -111,6 +206,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/ledger': {
+      id: '/_authenticated/ledger'
+      path: '/ledger'
+      fullPath: '/ledger'
+      preLoaderRoute: typeof AuthenticatedLedgerRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/contributions/': {
+      id: '/_authenticated/contributions/'
+      path: '/contributions'
+      fullPath: '/contributions/'
+      preLoaderRoute: typeof AuthenticatedContributionsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/contributions/$contributionId': {
+      id: '/_authenticated/contributions/$contributionId'
+      path: '/contributions/$contributionId'
+      fullPath: '/contributions/$contributionId'
+      preLoaderRoute: typeof AuthenticatedContributionsContributionIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dues/': {
+      id: '/_authenticated/dues/'
+      path: '/dues'
+      fullPath: '/dues/'
+      preLoaderRoute: typeof AuthenticatedDuesIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dues/$dueId': {
+      id: '/_authenticated/dues/$dueId'
+      path: '/dues/$dueId'
+      fullPath: '/dues/$dueId'
+      preLoaderRoute: typeof AuthenticatedDuesDueIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/members/': {
       id: '/_authenticated/members/'
       path: '/members'
@@ -118,16 +255,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMembersIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/members/$memberId': {
+      id: '/_authenticated/members/$memberId'
+      path: '/members/$memberId'
+      fullPath: '/members/$memberId'
+      preLoaderRoute: typeof AuthenticatedMembersMemberIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedLedgerRoute: typeof AuthenticatedLedgerRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedContributionsContributionIdRoute: typeof AuthenticatedContributionsContributionIdRoute
+  AuthenticatedDuesDueIdRoute: typeof AuthenticatedDuesDueIdRoute
+  AuthenticatedMembersMemberIdRoute: typeof AuthenticatedMembersMemberIdRoute
+  AuthenticatedContributionsIndexRoute: typeof AuthenticatedContributionsIndexRoute
+  AuthenticatedDuesIndexRoute: typeof AuthenticatedDuesIndexRoute
   AuthenticatedMembersIndexRoute: typeof AuthenticatedMembersIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedLedgerRoute: AuthenticatedLedgerRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedContributionsContributionIdRoute:
+    AuthenticatedContributionsContributionIdRoute,
+  AuthenticatedDuesDueIdRoute: AuthenticatedDuesDueIdRoute,
+  AuthenticatedMembersMemberIdRoute: AuthenticatedMembersMemberIdRoute,
+  AuthenticatedContributionsIndexRoute: AuthenticatedContributionsIndexRoute,
+  AuthenticatedDuesIndexRoute: AuthenticatedDuesIndexRoute,
   AuthenticatedMembersIndexRoute: AuthenticatedMembersIndexRoute,
 }
 
