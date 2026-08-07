@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedMembersIndexRouteImport } from './routes/_authenticated/members.index'
+import { Route as AuthenticatedMembersMemberIdRouteImport } from './routes/_authenticated/members.$memberId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,17 +41,25 @@ const AuthenticatedMembersIndexRoute =
     path: '/members/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedMembersMemberIdRoute =
+  AuthenticatedMembersMemberIdRouteImport.update({
+    id: '/members/$memberId',
+    path: '/members/$memberId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/members/$memberId': typeof AuthenticatedMembersMemberIdRoute
   '/members/': typeof AuthenticatedMembersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/members/$memberId': typeof AuthenticatedMembersMemberIdRoute
   '/members': typeof AuthenticatedMembersIndexRoute
 }
 export interface FileRoutesById {
@@ -59,19 +68,21 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/members/$memberId': typeof AuthenticatedMembersMemberIdRoute
   '/_authenticated/members/': typeof AuthenticatedMembersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/dashboard' | '/members/'
+  fullPaths: '/' | '/auth' | '/dashboard' | '/members/$memberId' | '/members/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/dashboard' | '/members'
+  to: '/' | '/auth' | '/dashboard' | '/members/$memberId' | '/members'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/dashboard'
+    | '/_authenticated/members/$memberId'
     | '/_authenticated/members/'
   fileRoutesById: FileRoutesById
 }
@@ -118,16 +129,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMembersIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/members/$memberId': {
+      id: '/_authenticated/members/$memberId'
+      path: '/members/$memberId'
+      fullPath: '/members/$memberId'
+      preLoaderRoute: typeof AuthenticatedMembersMemberIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedMembersMemberIdRoute: typeof AuthenticatedMembersMemberIdRoute
   AuthenticatedMembersIndexRoute: typeof AuthenticatedMembersIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedMembersMemberIdRoute: AuthenticatedMembersMemberIdRoute,
   AuthenticatedMembersIndexRoute: AuthenticatedMembersIndexRoute,
 }
 
