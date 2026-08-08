@@ -68,13 +68,28 @@ function LedgerPage() {
   const fromDate = range === "custom" ? from : daysAgoIso(activeRange.days);
   const toDate = range === "custom" ? to : todayIso();
 
+  const members = useQuery({
+    queryKey: ["members-simple", orgId],
+    enabled: !!orgId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("members")
+        .select("id, name")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const entries = useQuery({
     queryKey: ["ledger", orgId, fromDate, toDate],
     enabled: !!orgId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ledger_entries")
-        .select("id, kind, label, description, amount, entry_date, source_table")
+        .select(
+          "id, kind, label, description, amount, entry_date, source_table, member_id, members(name)",
+        )
         .gte("entry_date", fromDate)
         .lte("entry_date", toDate)
         .order("entry_date", { ascending: false })
