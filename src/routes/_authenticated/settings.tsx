@@ -132,7 +132,7 @@ function SettingsPage() {
   });
 
   const deleteAccount = useMutation({
-    mutationFn: async () => removeMe({ data: {} }),
+    mutationFn: async () => removeMe(),
     onSuccess: async () => {
       await supabase.auth.signOut();
       queryClient.clear();
