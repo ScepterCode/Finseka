@@ -72,22 +72,9 @@ export const inviteTeamMember = createServerFn({ method: "POST" })
       .upsert({ user_id: newUserId, org_id: orgId, role: data.role }, { onConflict: "user_id,role" });
     if (roleError) throw new Error(roleError.message);
 
-    let emailed = false;
-    let emailNote = "Email sending is not set up yet — share the temporary password yourself.";
-    try {
-      const { sendTemplateEmail } = await import("@/lib/email-templates/send-email");
-      await (sendTemplateEmail as unknown as (
-        t: string,
-        to: string,
-        o: { templateData: Record<string, string> },
-      ) => Promise<unknown>)("team-invite", data.email, {
-        templateData: { name: data.fullName, password, email: data.email },
-      });
-      emailed = true;
-      emailNote = "We sent them an email with the temporary password.";
-    } catch {
-      emailed = false;
-    }
+    const emailed = false;
+    const emailNote =
+      "Email sending is not switched on for this app yet, so share this temporary password with them yourself.";
 
     return { email: data.email, password, emailed, emailNote };
   });
