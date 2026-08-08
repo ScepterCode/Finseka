@@ -32,10 +32,16 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
+  const { session, loadingSession } = useAuth();
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+
+  // Google (and any other) sign-in returns here — send them straight to the dashboard.
+  useEffect(() => {
+    if (!loadingSession && session) navigate({ to: "/dashboard", replace: true });
+  }, [loadingSession, session, navigate]);
 
   async function signIn(e: React.FormEvent) {
     e.preventDefault();
@@ -56,7 +62,7 @@ function AuthPage() {
       email,
       password,
       options: {
-        emailRedirectTo: window.location.origin + "/dashboard",
+        emailRedirectTo: window.location.origin + "/auth",
         data: { full_name: fullName },
       },
     });
@@ -75,7 +81,7 @@ function AuthPage() {
   async function google() {
     setBusy(true);
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+      redirect_uri: window.location.origin + "/auth",
     });
     if (result.error) {
       setBusy(false);
@@ -83,7 +89,7 @@ function AuthPage() {
       return;
     }
     if (result.redirected) return;
-    navigate({ to: "/dashboard" });
+    navigate({ to: "/dashboard", replace: true });
   }
 
   return (
