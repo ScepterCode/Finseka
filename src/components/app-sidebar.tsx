@@ -32,9 +32,14 @@ const items = [
 ] as const;
 
 export function AppSidebar({ orgName }: { orgName: string }) {
-  const { state } = useSidebar();
+  const { state, setOpen, setOpenMobile, isMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  function closeAfterNav() {
+    if (isMobile) setOpenMobile(false);
+    else setOpen(false);
+  }
 
   return (
     <Sidebar collapsible="icon">
@@ -66,7 +71,7 @@ export function AppSidebar({ orgName }: { orgName: string }) {
                     isActive={pathname.startsWith(item.url)}
                     tooltip={item.title}
                   >
-                    <Link to={item.url} className="flex items-center gap-2">
+                    <Link to={item.url} className="flex items-center gap-2" onClick={closeAfterNav}>
                       <item.icon className="size-4" />
                       {!collapsed && <span>{item.title}</span>}
                     </Link>
