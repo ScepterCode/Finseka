@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { AppSidebar } from "@/components/app-sidebar";
+import { ConfirmButton } from "@/components/confirm";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +28,8 @@ function FullScreenLoader() {
 }
 
 function AuthenticatedLayout() {
-  const { session, loadingSession, loadingProfile, orgId, org, isAdmin, fullName } = useAuth();
+  const { session, loadingSession, loadingProfile, orgId, org, isAdmin, fullName, mustChangePassword } =
+    useAuth();
   const navigate = useNavigate();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -40,6 +42,8 @@ function AuthenticatedLayout() {
   }
 
   if (loadingProfile) return <FullScreenLoader />;
+
+  if (mustChangePassword) return <ChangePasswordScreen />;
 
   if (!orgId) return <OrganizationSetup defaultName={fullName} />;
 
@@ -64,9 +68,17 @@ function AuthenticatedLayout() {
             <Badge variant={isAdmin ? "default" : "secondary"} className="ml-1">
               {isAdmin ? "Admin" : "Viewer"}
             </Badge>
-            <Button variant="ghost" size="sm" className="ml-auto gap-2" onClick={signOut}>
+            <ConfirmButton
+              variant="ghost"
+              size="sm"
+              className="ml-auto gap-2"
+              title="Sign out of FinSeka?"
+              description="You will need your email and password (or Google) to come back in."
+              confirmLabel="Yes, sign me out"
+              onConfirm={() => void signOut()}
+            >
               <LogOut className="size-4" /> <span className="hidden sm:inline">Sign out</span>
-            </Button>
+            </ConfirmButton>
           </header>
           <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
             <Outlet />
@@ -74,6 +86,75 @@ function AuthenticatedLayout() {
         </div>
       </div>
     </SidebarProvider>
+  );
+}
+
+function ChangePasswordScreen() {
+  const { email, refreshMe, userId } = useAuth();
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (password.length < 6) throw new Error("Use at least 6 characters.");
+      if (password !== confirm) throw new Error("The two passwords do not match.");
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ must_change_password: false })
+        .eq("id", userId!);
+      if (profileError) throw profileError;
+    },
+    onSuccess: () => {
+      toast.success("Password changed. Welcome to FinSeka!");
+      refreshMe();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-5 py-10">
+      <div className="w-full max-w-md rounded-3xl border border-border bg-card p-7 shadow-lift">
+        <h1 className="font-display text-2xl font-semibold tracking-tight">Choose your password</h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          You signed in as {email} with a temporary password. Pick your own password to continue.
+        </p>
+        <form
+          className="mt-6 space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            save.mutate();
+          }}
+        >
+          <div className="space-y-2">
+            <Label htmlFor="np">New password</Label>
+            <Input
+              id="np"
+              type="password"
+              required
+              minLength={6}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="np2">Type it again</Label>
+            <Input
+              id="np2"
+              type="password"
+              required
+              minLength={6}
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
+          </div>
+          <Button type="submit" size="lg" className="w-full" disabled={save.isPending}>
+            {save.isPending && <Loader2 className="size-4 animate-spin" />} Save password
+          </Button>
+        </form>
+      </div>
+    </div>
   );
 }
 
