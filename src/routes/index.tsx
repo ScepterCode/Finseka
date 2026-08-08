@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Wallet,
   Users,
@@ -87,12 +87,20 @@ function Nav() {
             How it works
           </a>
         </nav>
-        <a
-          href="#start"
-          className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft transition-transform hover:scale-[1.02]"
-        >
-          Start free
-        </a>
+        <div className="flex items-center gap-2 sm:gap-4">
+          <Link
+            to="/auth"
+            className="text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Sign in
+          </Link>
+          <Link
+            to="/auth"
+            className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft transition-transform hover:scale-[1.02]"
+          >
+            Start free
+          </Link>
+        </div>
       </div>
     </header>
   );
@@ -117,12 +125,12 @@ function Hero() {
             arguing at meetings, no reconciling accounts at midnight.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <a
-              href="#start"
+            <Link
+              to="/auth"
               className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-7 py-4 text-base font-semibold text-primary-foreground shadow-lift transition-transform hover:scale-[1.02]"
             >
               Start free <ArrowRight className="size-4" aria-hidden />
-            </a>
+            </Link>
             <a
               href="#features"
               className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-card px-7 py-4 text-base font-semibold text-foreground shadow-soft transition-colors hover:bg-secondary"
@@ -160,7 +168,7 @@ const painPoints = [
   "Receipts scattered inside exercise book, biro fading small small.",
   "Somebody swears he paid February — nobody can prove otherwise.",
   "Month end reconciliation that keeps you awake till 2am.",
-  "Contribution for a burial closes and you still don't know who paid.",
+  "Contribution for the school building project closes and you still don't know who paid.",
   "New secretary takes over and the old records simply vanish.",
 ];
 
@@ -264,7 +272,7 @@ const features = [
   {
     icon: HeartHandshake,
     title: "Contributions",
-    body: "For things that come up — a burial, a projector. Pick members, set target, track who paid.",
+    body: "For things that come up — a child dedication, a hospital project, a new projector. Pick members, set target, track who paid.",
   },
   {
     icon: BookOpen,
@@ -326,7 +334,7 @@ function Transparency() {
               { k: "In hand", v: "₦120,000", tone: "text-primary" },
               { k: "Being owed", v: "₦45,000", tone: "text-destructive" },
               { k: "Paid this month", v: "40 members", tone: "text-success" },
-              { k: "Burial fund", v: "45 / 60 paid", tone: "text-accent" },
+              { k: "Building fund", v: "45 / 60 paid", tone: "text-accent" },
             ].map((stat) => (
               <div
                 key={stat.k}
@@ -404,12 +412,12 @@ function FinalCta() {
           trust of your people.
         </p>
         <div className="relative mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <a
-            href="#top"
+          <Link
+            to="/auth"
             className="inline-flex items-center justify-center gap-2 rounded-full bg-card px-8 py-4 text-base font-semibold text-primary shadow-lift transition-transform hover:scale-[1.02]"
           >
             Create free account <ArrowRight className="size-4" aria-hidden />
-          </a>
+          </Link>
           <a
             href="tel:+2348000000000"
             className="inline-flex items-center justify-center gap-2 rounded-full border border-primary-foreground/30 px-8 py-4 text-base font-semibold text-primary-foreground transition-colors hover:bg-primary-foreground/10"
