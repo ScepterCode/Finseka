@@ -68,13 +68,28 @@ function LedgerPage() {
   const fromDate = range === "custom" ? from : daysAgoIso(activeRange.days);
   const toDate = range === "custom" ? to : todayIso();
 
+  const members = useQuery({
+    queryKey: ["members-simple", orgId],
+    enabled: !!orgId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("members")
+        .select("id, name")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const entries = useQuery({
     queryKey: ["ledger", orgId, fromDate, toDate],
     enabled: !!orgId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ledger_entries")
-        .select("id, kind, label, description, amount, entry_date, source_table")
+        .select(
+          "id, kind, label, description, amount, entry_date, source_table, member_id, members(name)",
+        )
         .gte("entry_date", fromDate)
         .lte("entry_date", toDate)
         .order("entry_date", { ascending: false })
@@ -114,6 +129,7 @@ function LedgerPage() {
         action={
           isAdmin ? (
             <AddEntryDialog
+              members={members.data ?? []}
               onDone={() => {
                 queryClient.invalidateQueries({ queryKey: ["ledger"] });
                 queryClient.invalidateQueries({ queryKey: ["ledger-balance"] });
@@ -196,6 +212,9 @@ function LedgerPage() {
                   </span>
                   <span className="block truncate text-xs text-muted-foreground">
                     {shortDate(e.entry_date)}
+                    {(e.members as { name: string } | null)?.name
+                      ? ` · ${(e.members as { name: string }).name}`
+                      : ""}
                   </span>
                 </span>
                 <Badge variant="secondary" className="hidden sm:inline-flex">
@@ -214,9 +233,16 @@ function LedgerPage() {
   );
 }
 
-function AddEntryDialog({ onDone }: { onDone: () => void }) {
+function AddEntryDialog({
+  members,
+  onDone,
+}: {
+  members: { id: string; name: string }[];
+  onDone: () => void;
+}) {
   const { orgId } = useAuth();
   const [open, setOpen] = useState(false);
+  const [memberId, setMemberId] = useState<string>("none");
   const [kind, setKind] = useState<"income" | "expense">("expense");
   const [label, setLabel] = useState("Expense");
   const [description, setDescription] = useState("");
@@ -232,6 +258,7 @@ function AddEntryDialog({ onDone }: { onDone: () => void }) {
         description: description || null,
         amount: Number(amount || 0),
         entry_date: date,
+        member_id: memberId === "none" ? null : memberId,
       });
       if (error) throw error;
     },
@@ -311,6 +338,22 @@ function AddEntryDialog({ onDone }: { onDone: () => void }) {
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
             />
+          </div>
+          <div className="space-y-2">
+            <Label>Which member is this about? (optional)</Label>
+            <Select value={memberId} onValueChange={setMemberId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Nobody in particular" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nobody in particular</SelectItem>
+                {members.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="e-date">Date</Label>

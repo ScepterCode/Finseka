@@ -17,6 +17,7 @@ type AuthValue = {
   orgId: string | null;
   org: Org | null;
   isAdmin: boolean;
+  mustChangePassword: boolean;
   refreshMe: () => void;
 };
 
@@ -49,7 +50,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const [profileRes, rolesRes] = await Promise.all([
         supabase
           .from("profiles")
-          .select("id, org_id, full_name, phone, organizations(id, name, logo_url)")
+          .select(
+            "id, org_id, full_name, phone, must_change_password, organizations(id, name, logo_url)",
+          )
           .eq("id", userId!)
           .maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", userId!),
@@ -60,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         orgId: profile?.org_id ?? null,
         org: (profile?.organizations as Org | null) ?? null,
         isAdmin: (rolesRes.data ?? []).some((r) => r.role === "admin"),
+        mustChangePassword: profile?.must_change_password ?? false,
       };
     },
   });
@@ -75,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       orgId: me.data?.orgId ?? null,
       org: me.data?.org ?? null,
       isAdmin: me.data?.isAdmin ?? false,
+      mustChangePassword: me.data?.mustChangePassword ?? false,
       refreshMe: () => queryClient.invalidateQueries({ queryKey: ["me"] }),
     }),
     [session, userId, loadingSession, me.isLoading, me.data, queryClient],

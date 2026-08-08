@@ -293,6 +293,7 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["ledger_kind"]
           label: string
+          member_id: string | null
           org_id: string
           source_id: string | null
           source_table: string | null
@@ -305,6 +306,7 @@ export type Database = {
           id?: string
           kind: Database["public"]["Enums"]["ledger_kind"]
           label: string
+          member_id?: string | null
           org_id: string
           source_id?: string | null
           source_table?: string | null
@@ -317,11 +319,19 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["ledger_kind"]
           label?: string
+          member_id?: string | null
           org_id?: string
           source_id?: string | null
           source_table?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ledger_entries_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ledger_entries_org_id_fkey"
             columns: ["org_id"]
@@ -405,6 +415,7 @@ export type Database = {
           created_at: string
           full_name: string
           id: string
+          must_change_password: boolean
           org_id: string | null
           phone: string | null
         }
@@ -412,6 +423,7 @@ export type Database = {
           created_at?: string
           full_name?: string
           id: string
+          must_change_password?: boolean
           org_id?: string | null
           phone?: string | null
         }
@@ -419,6 +431,7 @@ export type Database = {
           created_at?: string
           full_name?: string
           id?: string
+          must_change_password?: boolean
           org_id?: string | null
           phone?: string | null
         }
