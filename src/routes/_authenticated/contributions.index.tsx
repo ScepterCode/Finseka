@@ -30,7 +30,7 @@ export const Route = createFileRoute("/_authenticated/contributions/")({
       { title: "Contributions — FinSeka" },
       {
         name: "description",
-        content: "One-off contributions like burials, projects and gifts — track who paid.",
+        content: "One-off contributions like child dedications, building projects and gifts — track who paid.",
       },
       { property: "og:title", content: "Contributions — FinSeka" },
       { property: "og:description", content: "Create a contribution and pick the members." },
@@ -77,7 +77,7 @@ function ContributionsPage() {
     <div className="space-y-8">
       <PageHeader
         title="Contributions"
-        subtitle="For things that come up — burials, projects, gifts."
+        subtitle="For things that come up — child dedications, building projects, gifts."
         action={
           isAdmin ? (
             <NewContributionDialog
@@ -95,7 +95,7 @@ function ContributionsPage() {
       ) : (contributions.data ?? []).length === 0 ? (
         <EmptyState
           title="No contributions yet"
-          hint='Example: "Sister Ada&apos;s mom burial — ₦2,000 each — due March 30".'
+          hint='Example: "School building project — ₦2,000 each — due March 30".'
         />
       ) : (
         <ul className="grid gap-4">
@@ -230,7 +230,7 @@ function NewContributionDialog({
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Sister Ada's mom burial"
+              placeholder="Baby Ada's dedication"
             />
           </div>
           <div className="space-y-2">
