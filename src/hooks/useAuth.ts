@@ -5,7 +5,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
 
-type Org = { id: string; name: string; logo_url: string | null };
+type Org = {
+  id: string;
+  name: string;
+  logo_url: string | null;
+  opening_balance_set: boolean;
+};
 
 type AuthValue = {
   session: Session | null;
@@ -51,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase
           .from("profiles")
           .select(
-            "id, org_id, full_name, phone, must_change_password, organizations(id, name, logo_url)",
+            "id, org_id, full_name, phone, must_change_password, organizations(id, name, logo_url, opening_balance_set)",
           )
           .eq("id", userId!)
           .maybeSingle(),

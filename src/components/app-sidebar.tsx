@@ -5,6 +5,7 @@ import {
   CalendarCheck,
   HeartHandshake,
   BookOpen,
+  FileBarChart,
   Settings,
   Wallet,
 } from "lucide-react";
@@ -28,6 +29,7 @@ const items = [
   { title: "Dues", url: "/dues", icon: CalendarCheck },
   { title: "Contributions", url: "/contributions", icon: HeartHandshake },
   { title: "Ledger", url: "/ledger", icon: BookOpen },
+  { title: "Reports", url: "/reports", icon: FileBarChart },
   { title: "Settings & Admin", url: "/settings", icon: Settings },
 ] as const;
 
