@@ -43,6 +43,57 @@ export type Database = {
           },
         ]
       }
+      contribution_expenses: {
+        Row: {
+          amount: number
+          contribution_id: string
+          created_at: string
+          description: string
+          id: string
+          method: Database["public"]["Enums"]["payment_method"]
+          org_id: string
+          spent_at: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          contribution_id: string
+          created_at?: string
+          description: string
+          id?: string
+          method?: Database["public"]["Enums"]["payment_method"]
+          org_id: string
+          spent_at?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          contribution_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          method?: Database["public"]["Enums"]["payment_method"]
+          org_id?: string
+          spent_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contribution_expenses_contribution_id_fkey"
+            columns: ["contribution_id"]
+            isOneToOne: false
+            referencedRelation: "contributions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contribution_expenses_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contribution_members: {
         Row: {
           contribution_id: string
@@ -93,6 +144,7 @@ export type Database = {
           created_at: string
           id: string
           member_id: string
+          method: Database["public"]["Enums"]["payment_method"]
           note: string | null
           org_id: string
           paid_at: string
@@ -103,6 +155,7 @@ export type Database = {
           created_at?: string
           id?: string
           member_id: string
+          method?: Database["public"]["Enums"]["payment_method"]
           note?: string | null
           org_id: string
           paid_at?: string
@@ -113,6 +166,7 @@ export type Database = {
           created_at?: string
           id?: string
           member_id?: string
+          method?: Database["public"]["Enums"]["payment_method"]
           note?: string | null
           org_id?: string
           paid_at?: string
@@ -144,10 +198,14 @@ export type Database = {
       contributions: {
         Row: {
           amount_per_person: number
+          budget_amount: number | null
           closed: boolean
+          committee: string[]
           created_at: string
           due_date: string | null
+          expenses_posted: boolean
           id: string
+          mandatory: boolean
           name: string
           org_id: string
           reason: string | null
@@ -155,10 +213,14 @@ export type Database = {
         }
         Insert: {
           amount_per_person?: number
+          budget_amount?: number | null
           closed?: boolean
+          committee?: string[]
           created_at?: string
           due_date?: string | null
+          expenses_posted?: boolean
           id?: string
+          mandatory?: boolean
           name: string
           org_id: string
           reason?: string | null
@@ -166,10 +228,14 @@ export type Database = {
         }
         Update: {
           amount_per_person?: number
+          budget_amount?: number | null
           closed?: boolean
+          committee?: string[]
           created_at?: string
           due_date?: string | null
+          expenses_posted?: boolean
           id?: string
+          mandatory?: boolean
           name?: string
           org_id?: string
           reason?: string | null
@@ -192,6 +258,7 @@ export type Database = {
           due_id: string
           id: string
           member_id: string
+          method: Database["public"]["Enums"]["payment_method"]
           note: string | null
           org_id: string
           paid_at: string
@@ -203,6 +270,7 @@ export type Database = {
           due_id: string
           id?: string
           member_id: string
+          method?: Database["public"]["Enums"]["payment_method"]
           note?: string | null
           org_id: string
           paid_at?: string
@@ -214,6 +282,7 @@ export type Database = {
           due_id?: string
           id?: string
           member_id?: string
+          method?: Database["public"]["Enums"]["payment_method"]
           note?: string | null
           org_id?: string
           paid_at?: string
@@ -253,6 +322,8 @@ export type Database = {
           name: string
           notes: string | null
           org_id: string
+          penalty_amount: number
+          penalty_grace_days: number
         }
         Insert: {
           active?: boolean
@@ -263,6 +334,8 @@ export type Database = {
           name: string
           notes?: string | null
           org_id: string
+          penalty_amount?: number
+          penalty_grace_days?: number
         }
         Update: {
           active?: boolean
@@ -273,6 +346,8 @@ export type Database = {
           name?: string
           notes?: string | null
           org_id?: string
+          penalty_amount?: number
+          penalty_grace_days?: number
         }
         Relationships: [
           {
@@ -294,6 +369,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["ledger_kind"]
           label: string
           member_id: string | null
+          method: Database["public"]["Enums"]["payment_method"]
           org_id: string
           source_id: string | null
           source_table: string | null
@@ -307,6 +383,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["ledger_kind"]
           label: string
           member_id?: string | null
+          method?: Database["public"]["Enums"]["payment_method"]
           org_id: string
           source_id?: string | null
           source_table?: string | null
@@ -320,6 +397,7 @@ export type Database = {
           kind?: Database["public"]["Enums"]["ledger_kind"]
           label?: string
           member_id?: string | null
+          method?: Database["public"]["Enums"]["payment_method"]
           org_id?: string
           source_id?: string | null
           source_table?: string | null
@@ -350,6 +428,7 @@ export type Database = {
           name: string
           org_id: string
           phone: string | null
+          tags: string[]
         }
         Insert: {
           active?: boolean
@@ -359,6 +438,7 @@ export type Database = {
           name: string
           org_id: string
           phone?: string | null
+          tags?: string[]
         }
         Update: {
           active?: boolean
@@ -368,6 +448,7 @@ export type Database = {
           name?: string
           org_id?: string
           phone?: string | null
+          tags?: string[]
         }
         Relationships: [
           {
@@ -393,6 +474,7 @@ export type Database = {
           id: string
           logo_url: string | null
           name: string
+          opening_balance_set: boolean
         }
         Insert: {
           created_at?: string
@@ -400,6 +482,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name: string
+          opening_balance_set?: boolean
         }
         Update: {
           created_at?: string
@@ -407,6 +490,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name?: string
+          opening_balance_set?: boolean
         }
         Relationships: []
       }
@@ -500,6 +584,7 @@ export type Database = {
       app_role: "admin" | "viewer"
       due_frequency: "daily" | "weekly" | "monthly" | "yearly" | "custom"
       ledger_kind: "income" | "expense"
+      payment_method: "cash" | "transfer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -630,6 +715,7 @@ export const Constants = {
       app_role: ["admin", "viewer"],
       due_frequency: ["daily", "weekly", "monthly", "yearly", "custom"],
       ledger_kind: ["income", "expense"],
+      payment_method: ["cash", "transfer"],
     },
   },
 } as const

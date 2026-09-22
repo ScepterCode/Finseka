@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { naira, shortDate, todayIso } from "@/lib/format";
+import { methodShort, type PayMethod } from "@/lib/methods";
+import { MethodSelect } from "@/components/method-select";
 import { EmptyState, PageHeader, StatCard } from "@/components/page-parts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,10 +37,10 @@ export const Route = createFileRoute("/_authenticated/ledger")({
       { title: "Ledger — FinSeka" },
       {
         name: "description",
-        content: "Money in and money out of your association purse, with the balance in hand.",
+        content: "Money in and money out of your association purse, in cash and in the bank.",
       },
       { property: "og:title", content: "Ledger — FinSeka" },
-      { property: "og:description", content: "Income, expenses and balance in hand." },
+      { property: "og:description", content: "Money in, money out, cash and bank balance." },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -48,8 +50,9 @@ export const Route = createFileRoute("/_authenticated/ledger")({
 const ranges = [
   { key: "7", label: "Last 7 days", days: 7 },
   { key: "14", label: "Last 2 weeks", days: 14 },
-  { key: "30", label: "Last 1 month", days: 30 },
-  { key: "365", label: "Last 1 year", days: 365 },
+  { key: "30", label: "This month", days: 30 },
+  { key: "90", label: "Last 3 months", days: 90 },
+  { key: "365", label: "This year", days: 365 },
   { key: "custom", label: "Pick dates", days: 0 },
 ] as const;
 
@@ -88,7 +91,7 @@ function LedgerPage() {
       const { data, error } = await supabase
         .from("ledger_entries")
         .select(
-          "id, kind, label, description, amount, entry_date, source_table, member_id, members(name)",
+          "id, kind, label, description, amount, entry_date, method, source_table, member_id, members(name)",
         )
         .gte("entry_date", fromDate)
         .lte("entry_date", toDate)
@@ -103,15 +106,20 @@ function LedgerPage() {
     queryKey: ["ledger-balance", orgId],
     enabled: !!orgId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("ledger_entries").select("kind, amount");
+      const { data, error } = await supabase.from("ledger_entries").select("kind, amount, method");
       if (error) throw error;
-      const income = (data ?? [])
-        .filter((e) => e.kind === "income")
-        .reduce((s, e) => s + Number(e.amount), 0);
-      const expense = (data ?? [])
-        .filter((e) => e.kind === "expense")
-        .reduce((s, e) => s + Number(e.amount), 0);
-      return { income, expense, balance: income - expense };
+      const rows = data ?? [];
+      const total = (kind: string, method?: string) =>
+        rows
+          .filter((e) => e.kind === kind && (!method || e.method === method))
+          .reduce((s, e) => s + Number(e.amount), 0);
+      const income = total("income");
+      const expense = total("expense");
+      return {
+        balance: income - expense,
+        cash: total("income", "cash") - total("expense", "cash"),
+        bank: total("income", "transfer") - total("expense", "transfer"),
+      };
     },
   });
 
@@ -134,6 +142,7 @@ function LedgerPage() {
                 queryClient.invalidateQueries({ queryKey: ["ledger"] });
                 queryClient.invalidateQueries({ queryKey: ["ledger-balance"] });
                 queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+                queryClient.invalidateQueries({ queryKey: ["reports"] });
               }}
             />
           ) : null
@@ -142,10 +151,15 @@ function LedgerPage() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard
-          label="Balance in hand"
+          label="Total purse"
           value={naira(allTime.data?.balance ?? 0)}
-          hint="All time"
+          hint="Cash plus bank, all time"
         />
+        <StatCard label="Cash at hand" value={naira(allTime.data?.cash ?? 0)} tone="accent" hint="Physical cash" />
+        <StatCard label="In the bank" value={naira(allTime.data?.bank ?? 0)} tone="accent" hint="Bank transfers" />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
         <StatCard label="Money in" value={naira(rangeIncome)} tone="good" hint={activeRange.label} />
         <StatCard label="Money out" value={naira(rangeExpense)} tone="bad" hint={activeRange.label} />
       </div>
@@ -211,7 +225,7 @@ function LedgerPage() {
                     {e.description || e.label}
                   </span>
                   <span className="block truncate text-xs text-muted-foreground">
-                    {shortDate(e.entry_date)}
+                    {shortDate(e.entry_date)} · {methodShort(e.method)}
                     {(e.members as { name: string } | null)?.name
                       ? ` · ${(e.members as { name: string }).name}`
                       : ""}
@@ -247,6 +261,7 @@ function AddEntryDialog({
   const [label, setLabel] = useState("Expense");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState<PayMethod>("cash");
   const [date, setDate] = useState(todayIso());
 
   const save = useMutation({
@@ -258,6 +273,7 @@ function AddEntryDialog({
         description: description || null,
         amount: Number(amount || 0),
         entry_date: date,
+        method,
         member_id: memberId === "none" ? null : memberId,
       });
       if (error) throw error;
@@ -279,7 +295,7 @@ function AddEntryDialog({
           <Plus className="size-4" /> Add entry
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add to ledger</DialogTitle>
           <DialogDescription>Money that entered or left the purse.</DialogDescription>
@@ -339,6 +355,7 @@ function AddEntryDialog({
               onChange={(e) => setAmount(e.target.value)}
             />
           </div>
+          <MethodSelect value={method} onChange={setMethod} />
           <div className="space-y-2">
             <Label>Which member is this about? (optional)</Label>
             <Select value={memberId} onValueChange={setMemberId}>
