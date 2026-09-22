@@ -198,10 +198,14 @@ export type Database = {
       contributions: {
         Row: {
           amount_per_person: number
+          budget_amount: number | null
           closed: boolean
+          committee: string[]
           created_at: string
           due_date: string | null
+          expenses_posted: boolean
           id: string
+          mandatory: boolean
           name: string
           org_id: string
           reason: string | null
@@ -209,10 +213,14 @@ export type Database = {
         }
         Insert: {
           amount_per_person?: number
+          budget_amount?: number | null
           closed?: boolean
+          committee?: string[]
           created_at?: string
           due_date?: string | null
+          expenses_posted?: boolean
           id?: string
+          mandatory?: boolean
           name: string
           org_id: string
           reason?: string | null
@@ -220,10 +228,14 @@ export type Database = {
         }
         Update: {
           amount_per_person?: number
+          budget_amount?: number | null
           closed?: boolean
+          committee?: string[]
           created_at?: string
           due_date?: string | null
+          expenses_posted?: boolean
           id?: string
+          mandatory?: boolean
           name?: string
           org_id?: string
           reason?: string | null
