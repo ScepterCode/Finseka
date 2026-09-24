@@ -51,7 +51,7 @@ function ContributionsPage() {
       const { data, error } = await supabase
         .from("contributions")
         .select(
-          "id, name, reason, amount_per_person, target_amount, due_date, closed, contribution_members(member_id), contribution_payments(amount, member_id)",
+          "id, name, reason, amount_per_person, target_amount, due_date, closed, mandatory, contribution_members(member_id), contribution_payments(amount, member_id)",
         )
         .order("created_at", { ascending: false });
       if (error) throw error;
