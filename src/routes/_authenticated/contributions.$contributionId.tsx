@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Check, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { initials, naira, shortDate, todayIso } from "@/lib/format";
+import { naira, shortDate, todayIso } from "@/lib/format";
+import { methodShort, type PayMethod } from "@/lib/methods";
 import { EmptyState, PageHeader, StatCard } from "@/components/page-parts";
+import { MethodSelect } from "@/components/method-select";
+import { ConfirmButton, ConfirmDialog } from "@/components/confirm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,15 +23,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/_authenticated/contributions/$contributionId")({
   head: () => ({
     meta: [
       { title: "Contribution tracker — FinSeka" },
-      { name: "description", content: "See who paid this contribution and how much is collected." },
+      { name: "description", content: "See who paid this contribution, event budget and spending." },
       { property: "og:title", content: "Contribution tracker — FinSeka" },
-      { property: "og:description", content: "Paid and not paid lists for one contribution." },
+      { property: "og:description", content: "Paid and not paid register for one contribution." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -36,19 +41,23 @@ export const Route = createFileRoute("/_authenticated/contributions/$contributio
 });
 
 type Person = { id: string; name: string; phone: string | null };
+type Status = "paid" | "part" | "unpaid" | "gave";
+type Filter = "all" | "paid" | "part" | "unpaid";
 
 function ContributionDetail() {
   const { contributionId } = Route.useParams();
   const { orgId, isAdmin } = useAuth();
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
   const [paying, setPaying] = useState<Person | null>(null);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [addingExpense, setAddingExpense] = useState(false);
 
   const contribution = useQuery({
     queryKey: ["contribution", contributionId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contributions")
-        .select("id, name, reason, amount_per_person, target_amount, due_date, closed")
+        .select("*")
         .eq("id", contributionId)
         .maybeSingle();
       if (error) throw error;
@@ -76,47 +85,127 @@ function ContributionDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contribution_payments")
-        .select("id, member_id, amount, paid_at, note")
-        .eq("contribution_id", contributionId);
+        .select("id, member_id, amount, paid_at, note, method")
+        .eq("contribution_id", contributionId)
+        .order("paid_at", { ascending: false });
       if (error) throw error;
       return data;
     },
   });
 
+  const expenses = useQuery({
+    queryKey: ["contribution-expenses", contributionId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("contribution_expenses")
+        .select("id, description, amount, method, spent_at")
+        .eq("contribution_id", contributionId)
+        .order("spent_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["contribution", contributionId] });
+    qc.invalidateQueries({ queryKey: ["contribution-payments"] });
+    qc.invalidateQueries({ queryKey: ["contribution-expenses", contributionId] });
+    qc.invalidateQueries({ queryKey: ["contributions"] });
+    qc.invalidateQueries({ queryKey: ["ledger"] });
+    qc.invalidateQueries({ queryKey: ["dashboard"] });
+  };
+
   const record = useMutation({
-    mutationFn: async (input: { memberId: string; amount: number; date: string; note: string }) => {
+    mutationFn: async (i: { memberId: string; amount: number; date: string; note: string; method: PayMethod }) => {
       const { error } = await supabase.from("contribution_payments").insert({
         org_id: orgId!,
         contribution_id: contributionId,
-        member_id: input.memberId,
-        amount: input.amount,
-        paid_at: input.date,
-        note: input.note || null,
+        member_id: i.memberId,
+        amount: i.amount,
+        paid_at: i.date,
+        note: i.note || null,
+        method: i.method,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Payment recorded");
       setPaying(null);
-      queryClient.invalidateQueries({ queryKey: ["contribution-payments"] });
-      queryClient.invalidateQueries({ queryKey: ["contributions"] });
-      queryClient.invalidateQueries({ queryKey: ["ledger"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      refresh();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const close = useMutation({
     mutationFn: async (closed: boolean) => {
-      const { error } = await supabase
-        .from("contributions")
-        .update({ closed })
-        .eq("id", contributionId);
+      const { error } = await supabase.from("contributions").update({ closed }).eq("id", contributionId);
+      if (error) throw error;
+    },
+    onSuccess: refresh,
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const addExpense = useMutation({
+    mutationFn: async (i: { description: string; amount: number; date: string; method: PayMethod }) => {
+      const { error } = await supabase.from("contribution_expenses").insert({
+        org_id: orgId!,
+        contribution_id: contributionId,
+        description: i.description,
+        amount: i.amount,
+        spent_at: i.date,
+        method: i.method,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["contribution", contributionId] });
-      queryClient.invalidateQueries({ queryKey: ["contributions"] });
+      toast.success("Spending added");
+      setAddingExpense(false);
+      refresh();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const removeExpense = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("contribution_expenses").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: refresh,
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const postExpenses = useMutation({
+    mutationFn: async () => {
+      const c = contribution.data!;
+      const list = expenses.data ?? [];
+      const byMethod: Record<PayMethod, number> = { cash: 0, transfer: 0 };
+      for (const e of list) byMethod[e.method as PayMethod] += Number(e.amount);
+      const rows = (Object.keys(byMethod) as PayMethod[])
+        .filter((m) => byMethod[m] > 0)
+        .map((m) => ({
+          org_id: orgId!,
+          kind: "expense" as const,
+          label: "Event expenses",
+          description: `Expenses from ${c.name}${m === "transfer" ? " (bank)" : " (cash)"}`,
+          amount: byMethod[m],
+          entry_date: todayIso(),
+          method: m,
+          source_table: "contributions",
+          source_id: c.id,
+        }));
+      if (rows.length) {
+        const { error } = await supabase.from("ledger_entries").insert(rows);
+        if (error) throw error;
+      }
+      const { error } = await supabase
+        .from("contributions")
+        .update({ expenses_posted: true, closed: true })
+        .eq("id", c.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Event closed and spending posted to the ledger");
+      refresh();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -144,18 +233,50 @@ function ContributionDetail() {
   }
 
   const c = contribution.data;
-  const paidByMember = new Map<string, number>();
-  for (const p of payments.data ?? []) {
-    paidByMember.set(p.member_id, (paidByMember.get(p.member_id) ?? 0) + Number(p.amount));
-  }
-  const all = people.data ?? [];
   const expected = Number(c.amount_per_person);
-  const paid = all.filter((m) => (paidByMember.get(m.id) ?? 0) >= expected && expected > 0);
-  const notPaid = all.filter((m) => !paidByMember.get(m.id));
-  const collected = [...paidByMember.values()].reduce((s, v) => s + v, 0);
+  const all = people.data ?? [];
+  const pays = payments.data ?? [];
+
+  const rows = all.map((m) => {
+    const mine = pays.filter((p) => p.member_id === m.id);
+    const paid = mine.reduce((s, p) => s + Number(p.amount), 0);
+    const last = mine[0];
+    let status: Status;
+    if (!c.mandatory) status = paid > 0 ? "gave" : "unpaid";
+    else if (expected > 0 && paid >= expected) status = "paid";
+    else if (paid > 0) status = "part";
+    else status = "unpaid";
+    return {
+      person: m,
+      paid,
+      balance: c.mandatory ? Math.max(expected - paid, 0) : 0,
+      date: last?.paid_at ?? null,
+      method: last?.method ?? null,
+      status,
+    };
+  });
+
+  const paidCount = rows.filter((r) => r.status === "paid" || r.status === "gave").length;
+  const partCount = rows.filter((r) => r.status === "part").length;
+  const unpaidCount = rows.filter((r) => r.status === "unpaid").length;
+  const collected = pays.reduce((s, p) => s + Number(p.amount), 0);
   const target = Number(c.target_amount ?? 0) || expected * all.length || 0;
   const pct = target > 0 ? Math.min((collected / target) * 100, 100) : 0;
   const overdue = !!c.due_date && !c.closed && new Date(c.due_date) < new Date(todayIso());
+
+  const spent = (expenses.data ?? []).reduce((s, e) => s + Number(e.amount), 0);
+  const budget = Number(c.budget_amount ?? 0);
+  const committee = (c.committee ?? []) as string[];
+
+  const shown = rows.filter((r) =>
+    filter === "all"
+      ? true
+      : filter === "paid"
+        ? r.status === "paid" || r.status === "gave"
+        : r.status === filter,
+  );
+
+  const total = Math.max(all.length, 1);
 
   return (
     <div className="space-y-8">
@@ -167,11 +288,11 @@ function ContributionDetail() {
 
       <PageHeader
         title={c.name}
-        subtitle={`${c.reason || "No reason added"} · ${naira(expected)} each${
+        subtitle={`${c.reason || "No reason added"} · ${c.mandatory ? `${naira(expected)} each` : "Freewill"}${
           c.due_date ? ` · due ${shortDate(c.due_date)}` : ""
         }`}
         action={
-          isAdmin ? (
+          isAdmin && !c.expenses_posted ? (
             <Button variant="outline" onClick={() => close.mutate(!c.closed)}>
               {c.closed ? "Reopen" : "Close contribution"}
             </Button>
@@ -181,61 +302,194 @@ function ContributionDetail() {
         }
       />
 
-      {overdue && (
+      {overdue && unpaidCount > 0 && (
         <p className="rounded-2xl border border-destructive/30 bg-destructive/10 px-5 py-3 text-sm font-medium text-destructive">
-          Due date has passed — {notPaid.length} people have not paid yet.
+          Due date has passed — {unpaidCount} people have not paid yet.
         </p>
       )}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Collected" value={naira(collected)} tone="good" />
         <StatCard label="Target" value={naira(target)} tone="accent" />
-        <StatCard
-          label="Not paid"
-          value={`${notPaid.length} of ${all.length}`}
-          tone={overdue ? "bad" : "default"}
-        />
+        <StatCard label="Not paid" value={`${unpaidCount} of ${all.length}`} tone={overdue ? "bad" : "default"} />
       </div>
 
-      <div className="space-y-2 rounded-3xl border border-border bg-card p-6 shadow-soft">
-        <Progress value={pct} />
-        <p className="text-sm text-muted-foreground">{Math.round(pct)}% of target collected</p>
+      <div className="space-y-4 rounded-3xl border border-border bg-card p-6 shadow-soft">
+        <div>
+          <Progress value={pct} />
+          <p className="mt-2 text-sm text-muted-foreground">{Math.round(pct)}% of target collected</p>
+        </div>
+        <div>
+          <div className="flex h-4 w-full overflow-hidden rounded-full bg-muted">
+            <div className="bg-success" style={{ width: `${(paidCount / total) * 100}%` }} />
+            <div className="bg-accent" style={{ width: `${(partCount / total) * 100}%` }} />
+            <div className="bg-destructive/70" style={{ width: `${(unpaidCount / total) * 100}%` }} />
+          </div>
+          <div className="mt-2 flex flex-wrap gap-4 text-sm">
+            <Legend className="bg-success" label={`Paid ${paidCount}`} />
+            {c.mandatory && <Legend className="bg-accent" label={`Part paid ${partCount}`} />}
+            <Legend className="bg-destructive/70" label={`Not paid ${unpaidCount}`} />
+          </div>
+        </div>
       </div>
 
-      {all.length === 0 ? (
-        <EmptyState title="No members selected" hint="Nobody was picked for this contribution." />
-      ) : (
-        <Tabs defaultValue="notpaid">
-          <TabsList>
-            <TabsTrigger value="notpaid">Not paid ({notPaid.length})</TabsTrigger>
-            <TabsTrigger value="paid">Paid ({paid.length})</TabsTrigger>
-          </TabsList>
-          <TabsContent value="notpaid" className="mt-5">
-            <PeopleList
-              people={notPaid}
-              tone={overdue ? "bad" : "muted"}
-              note={() => (overdue ? "Overdue" : "Not paid")}
-              action={
-                isAdmin && !c.closed
-                  ? (m) => (
-                      <Button size="sm" onClick={() => setPaying(m)}>
-                        Mark paid
-                      </Button>
-                    )
-                  : undefined
-              }
-            />
-          </TabsContent>
-          <TabsContent value="paid" className="mt-5">
-            <PeopleList
-              people={paid}
-              tone="good"
-              note={(m) => naira(paidByMember.get(m.id) ?? 0)}
-              action={() => <Check className="size-5 text-success" />}
-            />
-          </TabsContent>
-        </Tabs>
-      )}
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-display text-xl font-semibold">Payment register</h2>
+          <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
+            <TabsList>
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="paid">Paid</TabsTrigger>
+              {c.mandatory && <TabsTrigger value="part">Part</TabsTrigger>}
+              <TabsTrigger value="unpaid">Not paid</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+        {all.length === 0 ? (
+          <EmptyState title="No members selected" hint="Nobody was picked for this contribution." />
+        ) : (
+          <div className="overflow-x-auto rounded-3xl border border-border bg-card shadow-soft">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead className="bg-secondary text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3">Name</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Paid</th>
+                  {c.mandatory && <th className="px-4 py-3 text-right">Owing</th>}
+                  <th className="px-4 py-3">Date paid</th>
+                  <th className="px-4 py-3">How</th>
+                  {isAdmin && !c.closed && <th className="px-4 py-3" />}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {shown.map((r) => (
+                  <tr key={r.person.id}>
+                    <td className="px-4 py-3">
+                      <Link
+                        to="/members/$memberId"
+                        params={{ memberId: r.person.id }}
+                        className="font-medium hover:underline"
+                      >
+                        {r.person.name}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={r.status} overdue={overdue} />
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium">{naira(r.paid)}</td>
+                    {c.mandatory && (
+                      <td className={`px-4 py-3 text-right ${r.balance > 0 ? "text-destructive" : ""}`}>
+                        {naira(r.balance)}
+                      </td>
+                    )}
+                    <td className="px-4 py-3 text-muted-foreground">{r.date ? shortDate(r.date) : "—"}</td>
+                    <td className="px-4 py-3">
+                      {r.method ? <Badge variant="outline">{methodShort(r.method)}</Badge> : "—"}
+                    </td>
+                    {isAdmin && !c.closed && (
+                      <td className="px-4 py-3 text-right">
+                        {r.status !== "paid" && (
+                          <Button size="sm" onClick={() => setPaying(r.person)}>
+                            {r.paid > 0 ? "Add payment" : "Mark paid"}
+                          </Button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+                {shown.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                      Nobody here.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-display text-xl font-semibold">Event budget & spending</h2>
+          {isAdmin && !c.expenses_posted && (
+            <Button variant="outline" className="gap-2" onClick={() => setAddingExpense(true)}>
+              <Plus className="size-4" /> Add spending
+            </Button>
+          )}
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <StatCard label="Budget" value={budget ? naira(budget) : "Not set"} tone="accent" />
+          <StatCard label="Spent so far" value={naira(spent)} tone="default" />
+          <StatCard
+            label={budget && spent > budget ? "Over budget" : "Left in budget"}
+            value={budget ? naira(Math.abs(budget - spent)) : "—"}
+            tone={budget && spent > budget ? "bad" : "good"}
+          />
+        </div>
+        <div className="rounded-3xl border border-border bg-card p-5 shadow-soft">
+          <p className="text-sm font-medium">Committee</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {committee.length === 0 ? (
+              <span className="text-sm text-muted-foreground">No committee picked.</span>
+            ) : (
+              committee.map((n) => (
+                <Badge key={n} variant="secondary">
+                  {n}
+                </Badge>
+              ))
+            )}
+          </div>
+        </div>
+        {(expenses.data ?? []).length > 0 && (
+          <ul className="divide-y divide-border overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
+            {(expenses.data ?? []).map((e) => (
+              <li key={e.id} className="flex items-center gap-3 px-5 py-3 text-sm">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{e.description}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {shortDate(e.spent_at)} · {methodShort(e.method)}
+                  </span>
+                </span>
+                <span className="font-semibold text-destructive">{naira(Number(e.amount))}</span>
+                {isAdmin && !c.expenses_posted && (
+                  <ConfirmButton
+                    size="icon"
+                    variant="ghost"
+                    title="Remove this spending?"
+                    description={`${e.description} — ${naira(Number(e.amount))}`}
+                    confirmLabel="Yes, remove"
+                    destructive
+                    onConfirm={() => removeExpense.mutate(e.id)}
+                  >
+                    <Trash2 className="size-4" />
+                  </ConfirmButton>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        {c.expenses_posted ? (
+          <p className="rounded-2xl bg-success/10 px-5 py-3 text-sm font-medium text-success">
+            Event closed — {naira(spent)} spending was posted to the ledger.
+          </p>
+        ) : (
+          isAdmin && (
+            <ConfirmButton
+              size="lg"
+              className="w-full sm:w-auto"
+              disabled={postExpenses.isPending}
+              title="Close event and post spending?"
+              description={`This will close "${c.name}" and add ${naira(spent)} to the ledger as "Expenses from ${c.name}". You can't undo this.`}
+              confirmLabel="Yes, close and post"
+              onConfirm={() => postExpenses.mutate()}
+            >
+              {postExpenses.isPending && <Loader2 className="size-4 animate-spin" />} Close event & post to ledger
+            </ConfirmButton>
+          )
+        )}
+      </section>
 
       <Dialog open={!!paying} onOpenChange={(o) => !o && setPaying(null)}>
         <DialogContent>
@@ -247,51 +501,83 @@ function ContributionDetail() {
           </DialogHeader>
           {paying && (
             <PayForm
-              defaultAmount={Math.max(expected - (paidByMember.get(paying.id) ?? 0), 0)}
+              name={paying.name}
+              defaultAmount={
+                c.mandatory
+                  ? Math.max(expected - (rows.find((r) => r.person.id === paying.id)?.paid ?? 0), 0)
+                  : 0
+              }
               pending={record.isPending}
-              onSubmit={(amount, date, note) =>
-                record.mutate({ memberId: paying.id, amount, date, note })
+              onSubmit={(amount, date, note, method) =>
+                record.mutate({ memberId: paying.id, amount, date, note, method })
               }
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={addingExpense} onOpenChange={setAddingExpense}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add spending</DialogTitle>
+            <DialogDescription>Stays on this event until you post it to the ledger.</DialogDescription>
+          </DialogHeader>
+          <ExpenseForm pending={addExpense.isPending} onSubmit={(v) => addExpense.mutate(v)} />
         </DialogContent>
       </Dialog>
     </div>
   );
 }
 
+function Legend({ className, label }: { className: string; label: string }) {
+  return (
+    <span className="flex items-center gap-2">
+      <span className={`size-3 rounded-full ${className}`} /> {label}
+    </span>
+  );
+}
+
+function StatusBadge({ status, overdue }: { status: Status; overdue: boolean }) {
+  if (status === "paid" || status === "gave")
+    return <Badge className="bg-success/15 text-success hover:bg-success/15">{status === "gave" ? "Gave" : "Paid"}</Badge>;
+  if (status === "part") return <Badge className="bg-accent/15 text-accent hover:bg-accent/15">Part paid</Badge>;
+  return (
+    <Badge variant="secondary" className={overdue ? "text-destructive" : "text-muted-foreground"}>
+      {overdue ? "Overdue" : "Not paid"}
+    </Badge>
+  );
+}
+
 function PayForm({
+  name,
   defaultAmount,
   pending,
   onSubmit,
 }: {
+  name: string;
   defaultAmount: number;
   pending: boolean;
-  onSubmit: (amount: number, date: string, note: string) => void;
+  onSubmit: (amount: number, date: string, note: string, method: PayMethod) => void;
 }) {
   const [amount, setAmount] = useState(String(defaultAmount || ""));
   const [date, setDate] = useState(todayIso());
   const [note, setNote] = useState("");
+  const [method, setMethod] = useState<PayMethod>("cash");
+  const [confirm, setConfirm] = useState(false);
 
   return (
     <form
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit(Number(amount || 0), date, note);
+        setConfirm(true);
       }}
     >
       <div className="space-y-2">
         <Label htmlFor="cp-amount">How much did they pay? (₦)</Label>
-        <Input
-          id="cp-amount"
-          required
-          type="number"
-          min="0"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-        />
+        <Input id="cp-amount" required type="number" min="1" value={amount} onChange={(e) => setAmount(e.target.value)} />
       </div>
+      <MethodSelect value={method} onChange={setMethod} />
       <div className="space-y-2">
         <Label htmlFor="cp-date">Date paid</Label>
         <Input id="cp-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -303,54 +589,53 @@ function PayForm({
       <Button type="submit" size="lg" className="w-full" disabled={pending}>
         {pending && <Loader2 className="size-4 animate-spin" />} Save payment
       </Button>
+      <ConfirmDialog
+        open={confirm}
+        onOpenChange={setConfirm}
+        title="Confirm payment?"
+        description={`${name} paid ${naira(Number(amount || 0))} by ${method === "cash" ? "cash" : "bank transfer"}.`}
+        confirmLabel="Yes, record it"
+        onConfirm={() => onSubmit(Number(amount || 0), date, note, method)}
+      />
     </form>
   );
 }
 
-function PeopleList({
-  people,
-  note,
-  action,
-  tone,
+function ExpenseForm({
+  pending,
+  onSubmit,
 }: {
-  people: Person[];
-  note?: ((m: Person) => string) | undefined;
-  action?: ((m: Person) => React.ReactNode) | undefined;
-  tone: "good" | "bad" | "muted";
+  pending: boolean;
+  onSubmit: (v: { description: string; amount: number; date: string; method: PayMethod }) => void;
 }) {
-  if (people.length === 0) {
-    return <EmptyState title="Nobody here" hint="This list is empty." />;
-  }
-  const noteClass =
-    tone === "good" ? "text-success" : tone === "bad" ? "text-destructive" : "text-muted-foreground";
-
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState(todayIso());
+  const [method, setMethod] = useState<PayMethod>("cash");
   return (
-    <ul className="divide-y divide-border overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
-      {people.map((m) => (
-        <li key={m.id} className="flex items-center gap-4 px-5 py-4">
-          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
-            {initials(m.name)}
-          </span>
-          <span className="min-w-0 flex-1">
-            <Link
-              to="/members/$memberId"
-              params={{ memberId: m.id }}
-              className="block truncate font-medium hover:underline"
-            >
-              {m.name}
-            </Link>
-            <span className="block truncate text-xs text-muted-foreground">
-              {m.phone || "No phone"}
-            </span>
-          </span>
-          {note && (
-            <Badge variant="secondary" className={`hidden sm:inline-flex ${noteClass}`}>
-              {note(m)}
-            </Badge>
-          )}
-          {action?.(m)}
-        </li>
-      ))}
-    </ul>
+    <form
+      className="space-y-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit({ description, amount: Number(amount || 0), date, method });
+      }}
+    >
+      <div className="space-y-2">
+        <Label htmlFor="ce-desc">What was it for?</Label>
+        <Input id="ce-desc" required value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Canopy hire" />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="ce-amount">Amount (₦)</Label>
+        <Input id="ce-amount" required type="number" min="1" value={amount} onChange={(e) => setAmount(e.target.value)} />
+      </div>
+      <MethodSelect value={method} onChange={setMethod} label="Paid by cash or transfer?" />
+      <div className="space-y-2">
+        <Label htmlFor="ce-date">Date</Label>
+        <Input id="ce-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+      </div>
+      <Button type="submit" size="lg" className="w-full" disabled={pending}>
+        {pending && <Loader2 className="size-4 animate-spin" />} Save spending
+      </Button>
+    </form>
   );
 }
