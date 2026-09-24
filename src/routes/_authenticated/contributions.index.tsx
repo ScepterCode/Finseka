@@ -122,6 +122,7 @@ function ContributionsPage() {
                         {c.reason || "No reason added"}
                       </p>
                     </div>
+                    <Badge variant="outline">{c.mandatory ? "Compulsory" : "Freewill"}</Badge>
                     {c.closed ? (
                       <Badge variant="secondary">Closed</Badge>
                     ) : c.due_date ? (
@@ -161,6 +162,9 @@ function NewContributionDialog({
   const [target, setTarget] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
+  const [mandatory, setMandatory] = useState(true);
+  const [budget, setBudget] = useState("");
+  const [committee, setCommittee] = useState<string[]>([]);
 
   const allPicked = picked.length === members.length && members.length > 0;
 
@@ -175,6 +179,9 @@ function NewContributionDialog({
           amount_per_person: Number(amount || 0),
           target_amount: target ? Number(target) : null,
           due_date: dueDate || null,
+          mandatory,
+          budget_amount: budget ? Number(budget) : null,
+          committee,
         })
         .select("id")
         .single();
@@ -268,6 +275,47 @@ function NewContributionDialog({
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
             />
+          </div>
+          <div className="space-y-2">
+            <Label>Type</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <Button type="button" variant={mandatory ? "default" : "outline"} onClick={() => setMandatory(true)}>
+                Compulsory
+              </Button>
+              <Button type="button" variant={!mandatory ? "default" : "outline"} onClick={() => setMandatory(false)}>
+                Freewill
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {mandatory ? "Everyone picked must pay the amount." : "People give what they can — nobody is owing."}
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="c-budget">Event budget (₦, optional)</Label>
+            <Input
+              id="c-budget"
+              type="number"
+              min="0"
+              value={budget}
+              onChange={(e) => setBudget(e.target.value)}
+              placeholder="How much the committee plans to spend"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Committee ({committee.length} picked)</Label>
+            <div className="max-h-40 space-y-1 overflow-y-auto rounded-2xl border border-border p-3">
+              {members.map((m) => (
+                <label key={m.id} className="flex items-center gap-3 rounded-xl px-2 py-1.5 text-sm">
+                  <Checkbox
+                    checked={committee.includes(m.name)}
+                    onCheckedChange={(v) =>
+                      setCommittee((prev) => (v ? [...prev, m.name] : prev.filter((n) => n !== m.name)))
+                    }
+                  />
+                  {m.name}
+                </label>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-2">
