@@ -575,6 +575,10 @@ export type Database = {
         Returns: boolean
       }
       is_org_admin: { Args: never; Returns: boolean }
+      post_contribution_expenses: {
+        Args: { _contribution_id: string }
+        Returns: undefined
+      }
       setup_organization: {
         Args: { _full_name: string; _org_name: string; _phone?: string }
         Returns: string

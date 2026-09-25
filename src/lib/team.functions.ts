@@ -69,7 +69,7 @@ export const inviteTeamMember = createServerFn({ method: "POST" })
 
     const { error: roleError } = await supabaseAdmin
       .from("user_roles")
-      .upsert({ user_id: newUserId, org_id: orgId, role: data.role }, { onConflict: "user_id,role" });
+      .upsert({ user_id: newUserId, org_id: orgId, role: data.role }, { onConflict: "user_id,org_id" });
     if (roleError) throw new Error(roleError.message);
 
     const emailed = false;
@@ -96,6 +96,30 @@ export const revokeTeamMember = createServerFn({ method: "POST" })
 
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.userId);
     if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// The must_change_password flag is not writable by users, so it can only be cleared
+// here, after the new password has actually been set.
+export const completePasswordChange = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { password: string }) => {
+    const password = String(input.password ?? "");
+    if (password.length < 6) throw new Error("Use at least 6 characters.");
+    return { password };
+  })
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(context.userId, {
+      password: data.password,
+    });
+    if (error) throw new Error(error.message);
+
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .update({ must_change_password: false })
+      .eq("id", context.userId);
+    if (profileError) throw new Error(profileError.message);
     return { ok: true };
   });
 

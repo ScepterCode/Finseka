@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryKey: ["me", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const [profileRes, rolesRes] = await Promise.all([
+      const [profileRes, adminRes] = await Promise.all([
         supabase
           .from("profiles")
           .select(
@@ -60,14 +60,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           )
           .eq("id", userId!)
           .maybeSingle(),
-        supabase.from("user_roles").select("role").eq("user_id", userId!),
+        // Admin rights are per organization, so ask the database rather than reading role rows.
+        supabase.rpc("is_org_admin"),
       ]);
       const profile = profileRes.data;
       return {
         fullName: profile?.full_name ?? "",
         orgId: profile?.org_id ?? null,
         org: (profile?.organizations as Org | null) ?? null,
-        isAdmin: (rolesRes.data ?? []).some((r) => r.role === "admin"),
+        isAdmin: adminRes.data === true,
         mustChangePassword: profile?.must_change_password ?? false,
       };
     },

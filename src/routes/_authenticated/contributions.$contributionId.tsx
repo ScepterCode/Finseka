@@ -176,31 +176,10 @@ function ContributionDetail() {
 
   const postExpenses = useMutation({
     mutationFn: async () => {
-      const c = contribution.data!;
-      const list = expenses.data ?? [];
-      const byMethod: Record<PayMethod, number> = { cash: 0, transfer: 0 };
-      for (const e of list) byMethod[e.method as PayMethod] += Number(e.amount);
-      const rows = (Object.keys(byMethod) as PayMethod[])
-        .filter((m) => byMethod[m] > 0)
-        .map((m) => ({
-          org_id: orgId!,
-          kind: "expense" as const,
-          label: "Event expenses",
-          description: `Expenses from ${c.name}${m === "transfer" ? " (bank)" : " (cash)"}`,
-          amount: byMethod[m],
-          entry_date: todayIso(),
-          method: m,
-          source_table: "contributions",
-          source_id: c.id,
-        }));
-      if (rows.length) {
-        const { error } = await supabase.from("ledger_entries").insert(rows);
-        if (error) throw error;
-      }
-      const { error } = await supabase
-        .from("contributions")
-        .update({ expenses_posted: true, closed: true })
-        .eq("id", c.id);
+      // Posted in one database transaction so it can only happen once per event.
+      const { error } = await supabase.rpc("post_contribution_expenses", {
+        _contribution_id: contributionId,
+      });
       if (error) throw error;
     },
     onSuccess: () => {

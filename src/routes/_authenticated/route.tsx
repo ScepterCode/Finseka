@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { createFileRoute, Outlet, useNavigate, useRouter } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { Loader2, LogOut } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { completePasswordChange } from "@/lib/team.functions";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ConfirmButton } from "@/components/confirm";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -90,21 +92,16 @@ function AuthenticatedLayout() {
 }
 
 function ChangePasswordScreen() {
-  const { email, refreshMe, userId } = useAuth();
+  const { email, refreshMe } = useAuth();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const changePassword = useServerFn(completePasswordChange);
 
   const save = useMutation({
     mutationFn: async () => {
       if (password.length < 6) throw new Error("Use at least 6 characters.");
       if (password !== confirm) throw new Error("The two passwords do not match.");
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ must_change_password: false })
-        .eq("id", userId!);
-      if (profileError) throw profileError;
+      await changePassword({ data: { password } });
     },
     onSuccess: () => {
       toast.success("Password changed. Welcome to FinSeka!");
