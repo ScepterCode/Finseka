@@ -3,10 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { ArrowRight, Loader2 } from "lucide-react";
 
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { naira, shortDate } from "@/lib/format";
-import { currentPeriod, type Frequency } from "@/lib/periods";
+import { fetchDashboardSummary } from "@/lib/totals";
 import { PageHeader, StatCard, EmptyState } from "@/components/page-parts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,91 +31,23 @@ function Dashboard() {
     queryKey: ["dashboard", orgId],
     enabled: !!orgId,
     queryFn: async () => {
-      const [ledger, members, dues, duePayments, contributions, cMembers, cPayments] =
-        await Promise.all([
-          supabase.from("ledger_entries").select("id, kind, label, description, amount, entry_date"),
-          supabase.from("members").select("id").eq("active", true),
-          supabase.from("dues").select("id, name, amount, frequency").eq("active", true),
-          supabase.from("due_payments").select("due_id, member_id, amount, period_label"),
-          supabase
-            .from("contributions")
-            .select("id, name, amount_per_person, target_amount, due_date, closed")
-            .eq("closed", false),
-          supabase.from("contribution_members").select("contribution_id, member_id"),
-          supabase.from("contribution_payments").select("contribution_id, member_id, amount"),
-        ]);
-
-      const entries = ledger.data ?? [];
-      const income = entries
-        .filter((e) => e.kind === "income")
-        .reduce((s, e) => s + Number(e.amount), 0);
-      const expense = entries
-        .filter((e) => e.kind === "expense")
-        .reduce((s, e) => s + Number(e.amount), 0);
-
-      const memberCount = members.data?.length ?? 0;
-      const payments = duePayments.data ?? [];
-
-      let owed = 0;
-      let paidThisPeriod = 0;
-      let expectedThisPeriod = 0;
-
-      // A member can pay in instalments, so add up their payments before judging them paid.
-      const sumByMember = (rows: { member_id: string; amount: number }[]) => {
-        const out = new Map<string, number>();
-        for (const r of rows) out.set(r.member_id, (out.get(r.member_id) ?? 0) + Number(r.amount));
-        return out;
-      };
-
-      for (const due of dues.data ?? []) {
-        const period = currentPeriod(due.frequency as Frequency);
-        const paidBy = sumByMember(
-          payments.filter((p) => p.due_id === due.id && p.period_label === period),
-        );
-        const amount = Number(due.amount);
-        for (const m of members.data ?? []) {
-          const paid = paidBy.get(m.id) ?? 0;
-          owed += Math.max(0, amount - paid);
-          if (amount > 0 && paid >= amount) paidThisPeriod += 1;
-        }
-        expectedThisPeriod += memberCount;
-      }
-
-      const openContributions = (contributions.data ?? []).map((c) => {
-        const selected = (cMembers.data ?? []).filter((m) => m.contribution_id === c.id);
-        const paidRows = (cPayments.data ?? []).filter((p) => p.contribution_id === c.id);
-        const collected = paidRows.reduce((s, p) => s + Number(p.amount), 0);
-        const perPerson = Number(c.amount_per_person);
-        const paidBy = sumByMember(paidRows);
-        const paidCount = selected.filter((m) => {
-          const paid = paidBy.get(m.member_id) ?? 0;
-          return perPerson > 0 ? paid >= perPerson : paid > 0;
-        }).length;
-        const target =
-          Number(c.target_amount ?? 0) || selected.length * Number(c.amount_per_person);
-        owed += Math.max(0, target - collected);
-        return {
+      const s = await fetchDashboardSummary();
+      return {
+        balance: s.balance,
+        owed: s.owed,
+        memberCount: s.member_count,
+        duesPaid: s.dues_paid,
+        duesUnpaid: s.dues_unpaid,
+        contributions: s.contributions.map((c) => ({
           id: c.id,
           name: c.name,
           dueDate: c.due_date,
-          paidCount,
-          selectedCount: selected.length,
-          collected,
-          target,
-        };
-      });
-
-      return {
-        balance: income - expense,
-        owed,
-        memberCount,
-        duesPaid: paidThisPeriod,
-        duesUnpaid: Math.max(0, expectedThisPeriod - paidThisPeriod),
-        contributions: openContributions,
-        recent: entries
-          .slice()
-          .sort((a, b) => (a.entry_date < b.entry_date ? 1 : -1))
-          .slice(0, 6),
+          paidCount: c.paid_people,
+          selectedCount: c.picked,
+          collected: c.collected,
+          target: c.target,
+        })),
+        recent: s.recent,
       };
     },
   });
@@ -152,7 +83,7 @@ function Dashboard() {
           label="Total being owed"
           value={naira(data.owed)}
           tone="bad"
-          hint="Unpaid dues and contributions"
+          hint="Unpaid dues, late charges and compulsory contributions"
         />
         <StatCard
           label="Members"

@@ -18,6 +18,13 @@ export function initials(name: string) {
     .join("");
 }
 
+/** yyyy-mm-dd in the user's own time zone (toISOString would give the UTC date). */
+export function localIso(d: Date) {
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
 export function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return localIso(new Date());
 }

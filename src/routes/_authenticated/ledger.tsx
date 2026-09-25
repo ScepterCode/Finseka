@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownLeft, ArrowUpRight, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { naira, shortDate, todayIso } from "@/lib/format";
+import { localIso, naira, shortDate, todayIso } from "@/lib/format";
+import { fetchLedgerTotals } from "@/lib/totals";
 import { methodShort, type PayMethod } from "@/lib/methods";
 import { MethodSelect } from "@/components/method-select";
 import { EmptyState, PageHeader, StatCard } from "@/components/page-parts";
@@ -56,8 +57,12 @@ const ranges = [
   { key: "custom", label: "Pick dates", days: 0 },
 ] as const;
 
+/** Ledger rows are loaded this many at a time; totals come from the database. */
+const PAGE_SIZE = 100;
+
 function daysAgoIso(days: number) {
-  return new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+  const now = new Date();
+  return localIso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - days));
 }
 
 function LedgerPage() {
@@ -84,10 +89,11 @@ function LedgerPage() {
     },
   });
 
-  const entries = useQuery({
+  const entries = useInfiniteQuery({
     queryKey: ["ledger", orgId, fromDate, toDate],
     enabled: !!orgId,
-    queryFn: async () => {
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
       const { data, error } = await supabase
         .from("ledger_entries")
         .select(
@@ -96,38 +102,31 @@ function LedgerPage() {
         .gte("entry_date", fromDate)
         .lte("entry_date", toDate)
         .order("entry_date", { ascending: false })
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(pageParam, pageParam + PAGE_SIZE - 1);
       if (error) throw error;
       return data;
     },
+    getNextPageParam: (last, pages) =>
+      last.length < PAGE_SIZE ? undefined : pages.length * PAGE_SIZE,
   });
 
   const allTime = useQuery({
     queryKey: ["ledger-balance", orgId],
     enabled: !!orgId,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("ledger_entries").select("kind, amount, method");
-      if (error) throw error;
-      const rows = data ?? [];
-      const total = (kind: string, method?: string) =>
-        rows
-          .filter((e) => e.kind === kind && (!method || e.method === method))
-          .reduce((s, e) => s + Number(e.amount), 0);
-      const income = total("income");
-      const expense = total("expense");
-      return {
-        balance: income - expense,
-        cash: total("income", "cash") - total("expense", "cash"),
-        bank: total("income", "transfer") - total("expense", "transfer"),
-      };
-    },
+    queryFn: () => fetchLedgerTotals(),
   });
 
-  const rows = entries.data ?? [];
-  const rangeIncome = rows.filter((e) => e.kind === "income").reduce((s, e) => s + Number(e.amount), 0);
-  const rangeExpense = rows
-    .filter((e) => e.kind === "expense")
-    .reduce((s, e) => s + Number(e.amount), 0);
+  const rangeTotals = useQuery({
+    queryKey: ["ledger", orgId, "totals", fromDate, toDate],
+    enabled: !!orgId,
+    queryFn: () => fetchLedgerTotals(fromDate, toDate),
+  });
+
+  const rows = entries.data?.pages.flat() ?? [];
+  const rangeIncome = rangeTotals.data?.income ?? 0;
+  const rangeExpense = rangeTotals.data?.expense ?? 0;
 
   return (
     <div className="space-y-8">
@@ -242,6 +241,18 @@ function LedgerPage() {
             );
           })}
         </ul>
+      )}
+
+      {entries.hasNextPage && (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            onClick={() => void entries.fetchNextPage()}
+            disabled={entries.isFetchingNextPage}
+          >
+            {entries.isFetchingNextPage && <Loader2 className="size-4 animate-spin" />} Show more
+          </Button>
+        </div>
       )}
     </div>
   );

@@ -572,7 +572,41 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      contribution_progress: { Args: { _open_only?: boolean }; Returns: Json }
       current_org_id: { Args: never; Returns: string }
+      dashboard_summary: { Args: { _periods: Json }; Returns: Json }
+      ledger_totals: { Args: { _from?: string; _to?: string }; Returns: Json }
+      member_balances: {
+        Args: { _member_id?: string; _periods: Json }
+        Returns: {
+          contributions_owing: number
+          dues_owing: number
+          member_id: string
+          name: string
+          penalties: number
+          total_owing: number
+        }[]
+      }
+      report_summary: {
+        Args: { _from: string; _periods: Json; _to: string }
+        Returns: Json
+      }
+      standing_lines: {
+        Args: { _member_id?: string; _periods: Json }
+        Returns: {
+          expected: number
+          is_current: boolean
+          is_past: boolean
+          kind: string
+          member_id: string
+          paid: number
+          penalty: number
+          period_label: string | null
+          ref_id: string
+          ref_name: string
+          short: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

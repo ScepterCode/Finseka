@@ -8,7 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { naira, shortDate, initials } from "@/lib/format";
 import { methodShort } from "@/lib/methods";
-import { currentPeriod, isPastPeriod, periodOptions, type Frequency } from "@/lib/periods";
+import { currentPeriod, periodOptions, type Frequency } from "@/lib/periods";
+import { fetchMemberStanding } from "@/lib/totals";
 import { PageHeader, StatCard, EmptyState } from "@/components/page-parts";
 import { TagPicker } from "@/routes/_authenticated/members.index";
 import { Badge } from "@/components/ui/badge";
@@ -42,9 +43,6 @@ export const Route = createFileRoute("/_authenticated/members/$memberId")({
   }),
   component: MemberProfile,
 });
-
-/** How many past periods of a due we look back when adding up arrears. */
-const LOOKBACK = 6;
 
 function MemberProfile() {
   const { memberId } = Route.useParams();
@@ -89,6 +87,12 @@ function MemberProfile() {
       if (error) throw error;
       return data;
     },
+  });
+
+  // What this member owes, worked out by the database with the same rules as the dashboard.
+  const standing = useQuery({
+    queryKey: ["member-standing", memberId],
+    queryFn: () => fetchMemberStanding(memberId),
   });
 
   const obligations = useQuery({
@@ -147,7 +151,8 @@ function MemberProfile() {
     duePayments.isLoading ||
     contributions.isLoading ||
     contribPayments.isLoading ||
-    obligations.isLoading;
+    obligations.isLoading ||
+    standing.isLoading;
 
   if (loading) {
     return (
@@ -175,68 +180,70 @@ function MemberProfile() {
   const cPayments = contribPayments.data ?? [];
   const pickedIds = new Set(obligations.data ?? []);
 
+  const lines = standing.data ?? [];
+
   // ---- Dues standing, period by period ----
   const dueRows = (dues.data ?? []).map((d) => {
     const frequency = d.frequency as Frequency;
-    const periods = periodOptions(frequency).slice(0, LOOKBACK);
-    const expected = Number(d.amount);
-    const penalty = Number(d.penalty_amount ?? 0);
+    const order = periodOptions(frequency);
+    const periodRows = lines
+      .filter((l) => l.kind === "due" && l.ref_id === d.id)
+      .sort((a, b) => order.indexOf(a.period_label ?? "") - order.indexOf(b.period_label ?? ""))
+      .map((l) => ({
+        period: l.period_label ?? "",
+        paid: l.paid,
+        short: l.short,
+        latePenalty: l.penalty,
+        current: l.is_current,
+        status:
+          l.short === 0 ? "Paid" : l.paid > 0 ? "Part payment" : l.is_past ? "Overdue" : "Not paid",
+      }));
 
-    let arrears = 0;
-    let penalties = 0;
-    const periodRows = periods.map((p) => {
-      const paid = paymentsByDue
-        .filter((row) => row.due_id === d.id && row.period_label === p)
-        .reduce((s, row) => s + Number(row.amount), 0);
-      const short = Math.max(0, expected - paid);
-      const past = isPastPeriod(frequency, p);
-      const latePenalty = past && short > 0 ? penalty : 0;
-      arrears += short;
-      penalties += latePenalty;
-      return {
-        period: p,
-        paid,
-        short,
-        latePenalty,
-        status: short === 0 ? "Paid" : paid > 0 ? "Part payment" : past ? "Overdue" : "Not paid",
-      };
-    });
-
-    const thisPeriod = periodRows[0];
     return {
       id: d.id,
       name: d.name,
-      expected,
+      expected: Number(d.amount),
       frequency,
       currentPeriodLabel: currentPeriod(frequency),
-      currentStatus: thisPeriod?.status ?? "Not paid",
-      arrears,
-      penalties,
+      currentStatus: periodRows.find((p) => p.current)?.status ?? "Not paid",
+      arrears: periodRows.reduce((s, p) => s + p.short, 0),
+      penalties: periodRows.reduce((s, p) => s + p.latePenalty, 0),
       periodRows,
     };
   });
 
   // ---- Contribution standing ----
+  // Only compulsory contributions can be owed; freewill ones just show what was given.
   const contribRows = (contributions.data ?? [])
     .map((c) => {
       const paid = cPayments
         .filter((p) => p.contribution_id === c.id)
         .reduce((s, p) => s + Number(p.amount), 0);
       const obliged = pickedIds.has(c.id);
-      const expected = obliged ? Number(c.amount_per_person) : 0;
-      const owing = Math.max(0, expected - paid);
+      const line = lines.find((l) => l.kind === "contribution" && l.ref_id === c.id);
+      const expected = line?.expected ?? 0;
+      const owing = line?.short ?? 0;
       return {
         id: c.id,
         name: c.name,
         kind: obliged && c.mandatory ? "Compulsory" : obliged ? "Freewill" : "Gave freely",
+        obliged,
         expected,
         paid,
         owing,
         closed: c.closed,
-        status: expected === 0 ? (paid > 0 ? "Gave freely" : "—") : owing === 0 ? "Paid" : paid > 0 ? "Part payment" : "Not paid",
+        status: line
+          ? owing === 0
+            ? "Paid"
+            : paid > 0
+              ? "Part payment"
+              : "Not paid"
+          : paid > 0
+            ? "Gave freely"
+            : "—",
       };
     })
-    .filter((c) => c.expected > 0 || c.paid > 0);
+    .filter((c) => c.obliged || c.paid > 0);
 
   const duesPaidTotal = paymentsByDue.reduce((s, p) => s + Number(p.amount), 0);
   const contribPaidTotal = cPayments.reduce((s, p) => s + Number(p.amount), 0);

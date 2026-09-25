@@ -3,10 +3,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { naira } from "@/lib/format";
-import { currentPeriod, type Frequency } from "@/lib/periods";
+import { localIso, naira } from "@/lib/format";
+import { fetchReportSummary } from "@/lib/totals";
 import { EmptyState, PageHeader, StatCard } from "@/components/page-parts";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -58,94 +57,31 @@ function ReportsPage() {
 
   const from = month === "all" ? `${year}-01-01` : `${year}-${String(Number(month) + 1).padStart(2, "0")}-01`;
   const to =
-    month === "all"
-      ? `${year}-12-31`
-      : new Date(Number(year), Number(month) + 1, 0).toISOString().slice(0, 10);
+    month === "all" ? `${year}-12-31` : localIso(new Date(Number(year), Number(month) + 1, 0));
 
   const report = useQuery({
     queryKey: ["reports", orgId, from, to],
     enabled: !!orgId,
     queryFn: async () => {
-      const [ledger, members, dues, duePayments, contributions, cMembers, cPayments] =
-        await Promise.all([
-          supabase
-            .from("ledger_entries")
-            .select("kind, label, amount, method, entry_date")
-            .gte("entry_date", from)
-            .lte("entry_date", to),
-          supabase.from("members").select("id, name").eq("active", true).order("name"),
-          supabase.from("dues").select("id, name, amount, frequency, penalty_amount").eq("active", true),
-          supabase.from("due_payments").select("due_id, member_id, amount, period_label"),
-          supabase.from("contributions").select("id, name, amount_per_person, target_amount, closed"),
-          supabase.from("contribution_members").select("contribution_id, member_id"),
-          supabase.from("contribution_payments").select("contribution_id, member_id, amount"),
-        ]);
-
-      const entries = ledger.data ?? [];
-      const sum = (kind: string, method?: string) =>
-        entries
-          .filter((e) => e.kind === kind && (!method || e.method === method))
-          .reduce((s, e) => s + Number(e.amount), 0);
-
-      const byLabel = new Map<string, { income: number; expense: number }>();
-      for (const e of entries) {
-        const row = byLabel.get(e.label) ?? { income: 0, expense: 0 };
-        if (e.kind === "income") row.income += Number(e.amount);
-        else row.expense += Number(e.amount);
-        byLabel.set(e.label, row);
-      }
-
-      const owingByMember = new Map<string, number>();
-      const addOwing = (memberId: string, amount: number) =>
-        owingByMember.set(memberId, (owingByMember.get(memberId) ?? 0) + amount);
-
-      for (const due of dues.data ?? []) {
-        const period = currentPeriod(due.frequency as Frequency);
-        for (const m of members.data ?? []) {
-          const paid = (duePayments.data ?? [])
-            .filter((p) => p.due_id === due.id && p.member_id === m.id && p.period_label === period)
-            .reduce((s, p) => s + Number(p.amount), 0);
-          const short = Math.max(0, Number(due.amount) - paid);
-          if (short > 0) addOwing(m.id, short);
-        }
-      }
-
-      const reconciliation = (contributions.data ?? []).map((c) => {
-        const picked = (cMembers.data ?? []).filter((r) => r.contribution_id === c.id);
-        const paidRows = (cPayments.data ?? []).filter((p) => p.contribution_id === c.id);
-        const collected = paidRows.reduce((s, p) => s + Number(p.amount), 0);
-        const target = Number(c.target_amount ?? 0) || picked.length * Number(c.amount_per_person);
-        for (const p of picked) {
-          const paid = paidRows
-            .filter((r) => r.member_id === p.member_id)
-            .reduce((s, r) => s + Number(r.amount), 0);
-          const short = Math.max(0, Number(c.amount_per_person) - paid);
-          if (short > 0) addOwing(p.member_id, short);
-        }
-        return {
+      const r = await fetchReportSummary(from, to);
+      return {
+        income: r.income,
+        expense: r.expense,
+        cashIn: r.cash_in,
+        transferIn: r.transfer_in,
+        cashOut: r.cash_out,
+        transferOut: r.transfer_out,
+        byLabel: r.by_label.map((l) => [l.label, { income: l.income, expense: l.expense }] as const),
+        defaulters: r.defaulters,
+        reconciliation: r.contributions.map((c) => ({
           id: c.id,
           name: c.name,
           closed: c.closed,
-          people: picked.length,
-          paidPeople: new Set(paidRows.map((r) => r.member_id)).size,
-          collected,
-          target,
-        };
-      });
-
-      return {
-        income: sum("income"),
-        expense: sum("expense"),
-        cashIn: sum("income", "cash"),
-        transferIn: sum("income", "transfer"),
-        cashOut: sum("expense", "cash"),
-        transferOut: sum("expense", "transfer"),
-        byLabel: [...byLabel.entries()].sort((a, b) => b[1].income - a[1].income),
-        defaulters: (members.data ?? [])
-          .map((m) => ({ ...m, owing: owingByMember.get(m.id) ?? 0 }))
-          .filter((m) => m.owing > 0)
-          .sort((a, b) => b.owing - a.owing),
-        reconciliation,
+          people: c.picked,
+          paidPeople: c.paid_people,
+          collected: c.collected,
+          target: c.target,
+        })),
       };
     },
   });
