@@ -53,6 +53,8 @@ function ContributionsPage() {
         .select(
           "id, name, reason, amount_per_person, target_amount, due_date, closed, mandatory, contribution_members(member_id), contribution_payments(amount, member_id)",
         )
+        // Filters the embedded payments only; cancelled payments do not count.
+        .is("contribution_payments.voided_at", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;

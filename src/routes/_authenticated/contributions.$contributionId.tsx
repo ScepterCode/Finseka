@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -87,6 +87,7 @@ function ContributionDetail() {
         .from("contribution_payments")
         .select("id, member_id, amount, paid_at, note, method")
         .eq("contribution_id", contributionId)
+        .is("voided_at", null)
         .order("paid_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -154,6 +155,20 @@ function ContributionDetail() {
       if (error) throw error;
     },
     onSuccess: refresh,
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const [editing, setEditing] = useState(false);
+  const saveDetails = useMutation({
+    mutationFn: async (patch: ContributionPatch) => {
+      const { error } = await supabase.from("contributions").update(patch).eq("id", contributionId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Contribution updated");
+      setEditing(false);
+      refresh();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -283,15 +298,46 @@ function ContributionDetail() {
           c.due_date ? ` · due ${shortDate(c.due_date)}` : ""
         }`}
         action={
-          isAdmin && !c.expenses_posted ? (
-            <Button variant="outline" onClick={() => close.mutate(!c.closed)}>
-              {c.closed ? "Reopen" : "Close contribution"}
-            </Button>
-          ) : c.closed ? (
-            <Badge variant="secondary">Closed</Badge>
-          ) : null
+          <div className="flex flex-wrap items-center gap-2">
+            {isAdmin && (
+              <Button variant="outline" className="gap-2" onClick={() => setEditing(true)}>
+                <Pencil className="size-3.5" /> Edit
+              </Button>
+            )}
+            {isAdmin && !c.expenses_posted ? (
+              <Button variant="outline" onClick={() => close.mutate(!c.closed)}>
+                {c.closed ? "Reopen" : "Close contribution"}
+              </Button>
+            ) : c.closed ? (
+              <Badge variant="secondary">Closed</Badge>
+            ) : null}
+          </div>
         }
       />
+
+      <Dialog open={editing} onOpenChange={setEditing}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit {c.name}</DialogTitle>
+            <DialogDescription>
+              {c.mandatory
+                ? `The amount each person pays (${naira(expected)}) and whether it is compulsory cannot be changed, because that would rewrite what people owe.`
+                : "Whether it is compulsory cannot be changed, because that would rewrite what people owe."}
+            </DialogDescription>
+          </DialogHeader>
+          <EditContributionForm
+            initial={{
+              name: c.name,
+              reason: c.reason ?? "",
+              dueDate: c.due_date ?? "",
+              budget: c.budget_amount == null ? "" : String(c.budget_amount),
+              target: c.target_amount == null ? "" : String(c.target_amount),
+            }}
+            pending={saveDetails.isPending}
+            onSave={(patch) => saveDetails.mutate(patch)}
+          />
+        </DialogContent>
+      </Dialog>
 
       {overdue && unpaidCount > 0 && (
         <p className="rounded-2xl border border-destructive/30 bg-destructive/10 px-5 py-3 text-sm font-medium text-destructive">
@@ -589,6 +635,82 @@ function PayForm({
         confirmLabel="Yes, record it"
         onConfirm={() => onSubmit(Number(amount || 0), date, note, method, clientRef)}
       />
+    </form>
+  );
+}
+
+type ContributionPatch = {
+  name: string;
+  reason: string | null;
+  due_date: string | null;
+  budget_amount: number | null;
+  target_amount: number | null;
+};
+
+function EditContributionForm({
+  initial,
+  pending,
+  onSave,
+}: {
+  initial: { name: string; reason: string; dueDate: string; budget: string; target: string };
+  pending: boolean;
+  onSave: (patch: ContributionPatch) => void;
+}) {
+  const [name, setName] = useState(initial.name);
+  const [reason, setReason] = useState(initial.reason);
+  const [dueDate, setDueDate] = useState(initial.dueDate);
+  const [budget, setBudget] = useState(initial.budget);
+  const [target, setTarget] = useState(initial.target);
+
+  return (
+    <form
+      className="space-y-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave({
+          name: name.trim(),
+          reason: reason.trim() || null,
+          due_date: dueDate || null,
+          budget_amount: budget ? Number(budget) : null,
+          target_amount: target ? Number(target) : null,
+        });
+      }}
+    >
+      <div className="space-y-2">
+        <Label htmlFor="ec-name">Name</Label>
+        <Input id="ec-name" required value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="ec-reason">Reason (optional)</Label>
+        <Input id="ec-reason" value={reason} onChange={(e) => setReason(e.target.value)} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="ec-due">Due date (optional)</Label>
+        <Input id="ec-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="ec-target">Target to collect (₦, optional)</Label>
+        <Input
+          id="ec-target"
+          type="number"
+          min="0"
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="ec-budget">Event budget (₦, optional)</Label>
+        <Input
+          id="ec-budget"
+          type="number"
+          min="0"
+          value={budget}
+          onChange={(e) => setBudget(e.target.value)}
+        />
+      </div>
+      <Button type="submit" size="lg" className="w-full" disabled={pending}>
+        {pending && <Loader2 className="size-4 animate-spin" />} Save changes
+      </Button>
     </form>
   );
 }

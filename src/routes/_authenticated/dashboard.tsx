@@ -184,22 +184,26 @@ function Dashboard() {
           />
         ) : (
           <ul className="mt-4 divide-y divide-border">
-            {data.recent.map((e) => (
-              <li key={e.id} className="flex items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{e.description ?? e.label}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {e.label} · {shortDate(e.entry_date)}
-                  </p>
-                </div>
-                <Badge variant={e.kind === "income" ? "secondary" : "outline"}>
-                  <span className={e.kind === "income" ? "text-success" : "text-destructive"}>
-                    {e.kind === "income" ? "+" : "−"}
-                    {naira(e.amount)}
-                  </span>
-                </Badge>
-              </li>
-            ))}
+            {data.recent.map((e) => {
+              // Reversal lines carry a negative amount, so the effect on the purse is kind × amount.
+              const effect = (e.kind === "income" ? 1 : -1) * Number(e.amount);
+              return (
+                <li key={e.id} className="flex items-center justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{e.description ?? e.label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {e.label} · {shortDate(e.entry_date)}
+                    </p>
+                  </div>
+                  <Badge variant={effect >= 0 ? "secondary" : "outline"}>
+                    <span className={effect >= 0 ? "text-success" : "text-destructive"}>
+                      {effect >= 0 ? "+" : "−"}
+                      {naira(Math.abs(effect))}
+                    </span>
+                  </Badge>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

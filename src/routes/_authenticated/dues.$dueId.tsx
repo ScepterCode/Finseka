@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Check, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -64,7 +64,7 @@ function DueDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("dues")
-        .select("id, name, amount, frequency, notes, active")
+        .select("id, name, amount, frequency, notes, active, penalty_amount")
         .eq("id", dueId)
         .maybeSingle();
       if (error) throw error;
@@ -97,7 +97,8 @@ function DueDetail() {
         .from("due_payments")
         .select("id, member_id, amount, paid_at, note")
         .eq("due_id", dueId)
-        .eq("period_label", activePeriod);
+        .eq("period_label", activePeriod)
+        .is("voided_at", null);
       if (error) throw error;
       return data;
     },
@@ -134,6 +135,22 @@ function DueDetail() {
       setPaying(null);
       queryClient.invalidateQueries({ queryKey: ["due-payments"] });
       queryClient.invalidateQueries({ queryKey: ["ledger"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const [editing, setEditing] = useState(false);
+  const saveDue = useMutation({
+    mutationFn: async (patch: DuePatch) => {
+      const { error } = await supabase.from("dues").update(patch).eq("id", dueId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Due updated");
+      setEditing(false);
+      queryClient.invalidateQueries({ queryKey: ["due", dueId] });
+      queryClient.invalidateQueries({ queryKey: ["dues"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -190,23 +207,53 @@ function DueDetail() {
           due.data.notes ? ` · ${due.data.notes}` : ""
         }`}
         action={
-          <div className="w-full sm:w-56">
-            <Label className="mb-1.5 block text-xs">Period</Label>
-            <Select value={activePeriod} onValueChange={setPeriod}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {periodOptions(frequency).map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {p}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex w-full items-end gap-2 sm:w-auto">
+            <div className="w-full sm:w-56">
+              <Label className="mb-1.5 block text-xs">Period</Label>
+              <Select value={activePeriod} onValueChange={setPeriod}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {periodOptions(frequency).map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {isAdmin && (
+              <Button variant="outline" className="gap-2" onClick={() => setEditing(true)}>
+                <Pencil className="size-3.5" /> Edit
+              </Button>
+            )}
           </div>
         }
       />
+
+      <Dialog open={editing} onOpenChange={setEditing}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit {due.data.name}</DialogTitle>
+            <DialogDescription>
+              The amount ({naira(due.data.amount)}) cannot be changed here, because it would
+              rewrite what everyone owed in past periods. To charge a new amount, stop this due and
+              create a new one.
+            </DialogDescription>
+          </DialogHeader>
+          <EditDueForm
+            initial={{
+              name: due.data.name,
+              notes: due.data.notes ?? "",
+              penalty: Number(due.data.penalty_amount ?? 0),
+              active: due.data.active,
+            }}
+            pending={saveDue.isPending}
+            onSave={(patch) => saveDue.mutate(patch)}
+          />
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Collected" value={naira(collected)} tone="good" hint={activePeriod} />
@@ -296,6 +343,72 @@ function DueDetail() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+type DuePatch = { name: string; notes: string | null; penalty_amount: number; active: boolean };
+
+function EditDueForm({
+  initial,
+  pending,
+  onSave,
+}: {
+  initial: { name: string; notes: string; penalty: number; active: boolean };
+  pending: boolean;
+  onSave: (patch: DuePatch) => void;
+}) {
+  const [name, setName] = useState(initial.name);
+  const [notes, setNotes] = useState(initial.notes);
+  const [penalty, setPenalty] = useState(String(initial.penalty || ""));
+  const [active, setActive] = useState(initial.active ? "yes" : "no");
+
+  return (
+    <form
+      className="space-y-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave({
+          name: name.trim(),
+          notes: notes.trim() || null,
+          penalty_amount: Number(penalty || 0),
+          active: active === "yes",
+        });
+      }}
+    >
+      <div className="space-y-2">
+        <Label htmlFor="ed-name">Name</Label>
+        <Input id="ed-name" required value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="ed-notes">Notes (optional)</Label>
+        <Input id="ed-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="ed-penalty">Late charge for each missed period (₦, 0 for none)</Label>
+        <Input
+          id="ed-penalty"
+          type="number"
+          min="0"
+          value={penalty}
+          onChange={(e) => setPenalty(e.target.value)}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Still collecting this due?</Label>
+        <Select value={active} onValueChange={setActive}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="yes">Yes — keep collecting</SelectItem>
+            <SelectItem value="no">No — stop this due</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <Button type="submit" size="lg" className="w-full" disabled={pending}>
+        {pending && <Loader2 className="size-4 animate-spin" />} Save changes
+      </Button>
+    </form>
   );
 }
 

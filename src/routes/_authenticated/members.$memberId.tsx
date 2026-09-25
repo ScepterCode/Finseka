@@ -12,6 +12,8 @@ import { currentPeriod, periodOptions, type Frequency } from "@/lib/periods";
 import { fetchMemberStanding } from "@/lib/totals";
 import { PageHeader, StatCard, EmptyState } from "@/components/page-parts";
 import { TagPicker } from "@/routes/_authenticated/members.index";
+import { ReasonDialog } from "@/components/reason-dialog";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -46,7 +48,7 @@ export const Route = createFileRoute("/_authenticated/members/$memberId")({
 
 function MemberProfile() {
   const { memberId } = Route.useParams();
-  const { isAdmin } = useAuth();
+  const { isAdmin, orgId } = useAuth();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
 
@@ -55,7 +57,7 @@ function MemberProfile() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("members")
-        .select("id, name, phone, active, tags, branches(name)")
+        .select("id, name, phone, active, tags, branch_id, branches(name)")
         .eq("id", memberId)
         .maybeSingle();
       if (error) throw error;
@@ -81,7 +83,9 @@ function MemberProfile() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("due_payments")
-        .select("id, due_id, amount, paid_at, period_label, method, note, dues(name)")
+        .select(
+          "id, due_id, amount, paid_at, period_label, method, note, voided_at, void_reason, dues(name)",
+        )
         .eq("member_id", memberId)
         .order("paid_at", { ascending: false });
       if (error) throw error;
@@ -123,7 +127,9 @@ function MemberProfile() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contribution_payments")
-        .select("id, contribution_id, amount, paid_at, method, note, contributions(name)")
+        .select(
+          "id, contribution_id, amount, paid_at, method, note, voided_at, void_reason, contributions(name)",
+        )
         .eq("member_id", memberId)
         .order("paid_at", { ascending: false });
       if (error) throw error;
@@ -131,8 +137,18 @@ function MemberProfile() {
     },
   });
 
+  const branches = useQuery({
+    queryKey: ["branches", orgId],
+    enabled: !!orgId && isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("branches").select("id, name").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const update = useMutation({
-    mutationFn: async (patch: { active?: boolean; tags?: string[] }) => {
+    mutationFn: async (patch: MemberPatch) => {
       const { error } = await supabase.from("members").update(patch).eq("id", memberId);
       if (error) throw error;
     },
@@ -141,6 +157,37 @@ function MemberProfile() {
       setEditing(false);
       queryClient.invalidateQueries({ queryKey: ["member", memberId] });
       queryClient.invalidateQueries({ queryKey: ["members"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Payments are never deleted: cancelling keeps the record and reverses it in the ledger.
+  const [cancelling, setCancelling] = useState<{ kind: "due" | "contribution"; id: string; label: string } | null>(null);
+  const cancelPayment = useMutation({
+    mutationFn: async (reason: string) => {
+      const { error } = await supabase.rpc("void_payment", {
+        _kind: cancelling!.kind,
+        _payment_id: cancelling!.id,
+        _reason: reason,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Payment cancelled and reversed in the ledger");
+      setCancelling(null);
+      for (const key of [
+        "member-due-payments",
+        "member-contrib-payments",
+        "member-standing",
+        "due-payments",
+        "contribution-payments",
+        "ledger",
+        "ledger-balance",
+        "dashboard",
+        "reports",
+      ]) {
+        queryClient.invalidateQueries({ queryKey: [key] });
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -176,8 +223,11 @@ function MemberProfile() {
     );
   }
 
-  const paymentsByDue = duePayments.data ?? [];
-  const cPayments = contribPayments.data ?? [];
+  // Cancelled payments stay visible in the history but never count towards totals.
+  const allDuePayments = duePayments.data ?? [];
+  const allContribPayments = contribPayments.data ?? [];
+  const paymentsByDue = allDuePayments.filter((p) => !p.voided_at);
+  const cPayments = allContribPayments.filter((p) => !p.voided_at);
   const pickedIds = new Set(obligations.data ?? []);
 
   const lines = standing.data ?? [];
@@ -254,21 +304,27 @@ function MemberProfile() {
   const tags = (member.data.tags as string[] | null) ?? [];
 
   const history = [
-    ...paymentsByDue.map((p) => ({
+    ...allDuePayments.map((p) => ({
       id: p.id,
       label: (p.dues as { name: string } | null)?.name ?? "Dues",
       detail: `${p.period_label} · ${methodShort(p.method)}`,
       amount: Number(p.amount),
       date: p.paid_at,
       kind: "Dues",
+      payKind: "due" as const,
+      voided: !!p.voided_at,
+      voidReason: p.void_reason,
     })),
-    ...cPayments.map((p) => ({
+    ...allContribPayments.map((p) => ({
       id: p.id,
       label: (p.contributions as { name: string } | null)?.name ?? "Contribution",
       detail: `${methodShort(p.method)}${p.note ? ` · ${p.note}` : ""}`,
       amount: Number(p.amount),
       date: p.paid_at,
       kind: "Contribution",
+      payKind: "contribution" as const,
+      voided: !!p.voided_at,
+      voidReason: p.void_reason,
     })),
   ].sort((a, b) => (a.date < b.date ? 1 : -1));
 
@@ -462,13 +518,40 @@ function MemberProfile() {
                     {initials(h.label)}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{h.label}</span>
+                    <span className={`block truncate font-medium ${h.voided ? "line-through opacity-60" : ""}`}>
+                      {h.label}
+                    </span>
                     <span className="block truncate text-xs text-muted-foreground">
                       {h.kind}
                       {h.detail ? ` · ${h.detail}` : ""} · {shortDate(h.date)}
                     </span>
+                    {h.voided && (
+                      <span className="block truncate text-xs text-destructive">
+                        Cancelled{h.voidReason ? `: ${h.voidReason}` : ""}
+                      </span>
+                    )}
                   </span>
-                  <span className="font-semibold text-success">{naira(h.amount)}</span>
+                  <span
+                    className={`font-semibold ${h.voided ? "text-muted-foreground line-through" : "text-success"}`}
+                  >
+                    {naira(h.amount)}
+                  </span>
+                  {isAdmin && !h.voided && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive"
+                      onClick={() =>
+                        setCancelling({
+                          kind: h.payKind,
+                          id: h.id,
+                          label: `${naira(h.amount)} for ${h.label} (${shortDate(h.date)})`,
+                        })
+                      }
+                    >
+                      Cancel
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -480,42 +563,102 @@ function MemberProfile() {
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit {member.data.name}</DialogTitle>
-            <DialogDescription>Change their labels or mark them active or not.</DialogDescription>
+            <DialogDescription>
+              Change their details, labels, or whether they are still active. Past payments keep
+              the name they were recorded with.
+            </DialogDescription>
           </DialogHeader>
           <EditMemberForm
-            initialTags={tags}
-            initialActive={member.data.active}
+            initial={{
+              name: member.data.name,
+              phone: member.data.phone ?? "",
+              branchId: member.data.branch_id,
+              tags,
+              active: member.data.active,
+            }}
+            branches={branches.data ?? []}
             pending={update.isPending}
             onSave={(patch) => update.mutate(patch)}
           />
         </DialogContent>
       </Dialog>
+
+      <ReasonDialog
+        open={!!cancelling}
+        onOpenChange={(o) => !o && setCancelling(null)}
+        title="Cancel this payment?"
+        description={`${cancelling?.label ?? ""}. The payment stays in the history, marked as cancelled, and the ledger gets a reversing line. Record the right payment afterwards if needed.`}
+        confirmLabel="Yes, cancel it"
+        pending={cancelPayment.isPending}
+        onConfirm={(reason) => cancelPayment.mutate(reason)}
+      />
     </div>
   );
 }
 
+type MemberPatch = {
+  name: string;
+  phone: string | null;
+  branch_id: string | null;
+  active: boolean;
+  tags: string[];
+};
+
 function EditMemberForm({
-  initialTags,
-  initialActive,
+  initial,
+  branches,
   pending,
   onSave,
 }: {
-  initialTags: string[];
-  initialActive: boolean;
+  initial: { name: string; phone: string; branchId: string | null; tags: string[]; active: boolean };
+  branches: { id: string; name: string }[];
   pending: boolean;
-  onSave: (patch: { active: boolean; tags: string[] }) => void;
+  onSave: (patch: MemberPatch) => void;
 }) {
-  const [tags, setTags] = useState(initialTags);
-  const [active, setActive] = useState(initialActive ? "yes" : "no");
+  const [name, setName] = useState(initial.name);
+  const [phone, setPhone] = useState(initial.phone);
+  const [branchId, setBranchId] = useState(initial.branchId ?? "none");
+  const [tags, setTags] = useState(initial.tags);
+  const [active, setActive] = useState(initial.active ? "yes" : "no");
 
   return (
     <form
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        onSave({ active: active === "yes", tags });
+        onSave({
+          name: name.trim(),
+          phone: phone.trim() || null,
+          branch_id: branchId === "none" ? null : branchId,
+          active: active === "yes",
+          tags,
+        });
       }}
     >
+      <div className="space-y-2">
+        <Label htmlFor="em-name">Name</Label>
+        <Input id="em-name" required value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="em-phone">Phone (optional)</Label>
+        <Input id="em-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+      </div>
+      <div className="space-y-2">
+        <Label>Branch</Label>
+        <Select value={branchId} onValueChange={setBranchId}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">No branch</SelectItem>
+            {branches.map((b) => (
+              <SelectItem key={b.id} value={b.id}>
+                {b.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <div className="space-y-2">
         <Label>Is this person still active?</Label>
         <Select value={active} onValueChange={setActive}>

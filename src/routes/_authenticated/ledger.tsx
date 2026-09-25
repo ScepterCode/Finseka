@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDownLeft, ArrowUpRight, Loader2, Plus } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Loader2, Plus, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +10,7 @@ import { localIso, naira, shortDate, todayIso } from "@/lib/format";
 import { fetchLedgerTotals } from "@/lib/totals";
 import { methodShort, type PayMethod } from "@/lib/methods";
 import { MethodSelect } from "@/components/method-select";
+import { ReasonDialog } from "@/components/reason-dialog";
 import { EmptyState, PageHeader, StatCard } from "@/components/page-parts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -97,7 +98,7 @@ function LedgerPage() {
       const { data, error } = await supabase
         .from("ledger_entries")
         .select(
-          "id, kind, label, description, amount, entry_date, method, source_table, member_id, members(name)",
+          "id, kind, label, description, amount, entry_date, method, source_table, source_id, member_id, reverses_id, reversed_at, reverse_reason, members(name)",
         )
         .gte("entry_date", fromDate)
         .lte("entry_date", toDate)
@@ -122,6 +123,45 @@ function LedgerPage() {
     queryKey: ["ledger", orgId, "totals", fromDate, toDate],
     enabled: !!orgId,
     queryFn: () => fetchLedgerTotals(fromDate, toDate),
+  });
+
+  // Nothing is deleted: a wrong line is reversed, and a wrong payment is cancelled
+  // (which reverses its ledger line).
+  const [undoing, setUndoing] = useState<{
+    id: string;
+    label: string;
+    payment: { kind: "due" | "contribution"; id: string } | null;
+  } | null>(null);
+  const undo = useMutation({
+    mutationFn: async (reason: string) => {
+      const u = undoing!;
+      const { error } = u.payment
+        ? await supabase.rpc("void_payment", {
+            _kind: u.payment.kind,
+            _payment_id: u.payment.id,
+            _reason: reason,
+          })
+        : await supabase.rpc("reverse_ledger_entry", { _entry_id: u.id, _reason: reason });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success(undoing?.payment ? "Payment cancelled and reversed" : "Line reversed");
+      setUndoing(null);
+      for (const key of [
+        "ledger",
+        "ledger-balance",
+        "dashboard",
+        "reports",
+        "due-payments",
+        "contribution-payments",
+        "member-due-payments",
+        "member-contrib-payments",
+        "member-standing",
+      ]) {
+        queryClient.invalidateQueries({ queryKey: [key] });
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const rows = entries.data?.pages.flat() ?? [];
@@ -205,22 +245,36 @@ function LedgerPage() {
       ) : (
         <ul className="divide-y divide-border overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
           {rows.map((e) => {
-            const income = e.kind === "income";
+            // Reversal lines carry a negative amount, so money in the purse = kind × amount.
+            const effect = (e.kind === "income" ? 1 : -1) * Number(e.amount);
+            const moneyIn = effect >= 0;
+            const isReversal = !!e.reverses_id;
+            const isReversed = !!e.reversed_at;
+            const fromPayment =
+              e.source_table === "due_payments" || e.source_table === "contribution_payments";
             return (
               <li key={e.id} className="flex items-center gap-4 px-5 py-4">
                 <span
                   className={`grid size-10 shrink-0 place-items-center rounded-full ${
-                    income ? "bg-success/12 text-success" : "bg-destructive/12 text-destructive"
+                    isReversal
+                      ? "bg-secondary text-muted-foreground"
+                      : moneyIn
+                        ? "bg-success/12 text-success"
+                        : "bg-destructive/12 text-destructive"
                   }`}
                 >
-                  {income ? (
+                  {isReversal ? (
+                    <Undo2 className="size-4" />
+                  ) : moneyIn ? (
                     <ArrowDownLeft className="size-4" />
                   ) : (
                     <ArrowUpRight className="size-4" />
                   )}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">
+                  <span
+                    className={`block truncate font-medium ${isReversed ? "line-through opacity-60" : ""}`}
+                  >
                     {e.description || e.label}
                   </span>
                   <span className="block truncate text-xs text-muted-foreground">
@@ -229,14 +283,45 @@ function LedgerPage() {
                       ? ` · ${(e.members as { name: string }).name}`
                       : ""}
                   </span>
+                  {isReversed && (
+                    <span className="block truncate text-xs text-destructive">
+                      Reversed{e.reverse_reason ? `: ${e.reverse_reason}` : ""}
+                    </span>
+                  )}
                 </span>
                 <Badge variant="secondary" className="hidden sm:inline-flex">
-                  {e.label}
+                  {isReversal ? "Reversal" : e.label}
                 </Badge>
-                <span className={`font-semibold ${income ? "text-success" : "text-destructive"}`}>
-                  {income ? "+" : "−"}
-                  {naira(e.amount)}
+                <span
+                  className={`font-semibold ${
+                    isReversed ? "line-through opacity-60" : ""
+                  } ${moneyIn ? "text-success" : "text-destructive"}`}
+                >
+                  {moneyIn ? "+" : "−"}
+                  {naira(Math.abs(effect))}
                 </span>
+                {isAdmin && !isReversal && !isReversed && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive"
+                    onClick={() =>
+                      setUndoing({
+                        id: e.id,
+                        label: e.description || e.label,
+                        payment:
+                          fromPayment && e.source_id
+                            ? {
+                                kind: e.source_table === "due_payments" ? "due" : "contribution",
+                                id: e.source_id,
+                              }
+                            : null,
+                      })
+                    }
+                  >
+                    {fromPayment ? "Cancel payment" : "Reverse"}
+                  </Button>
+                )}
               </li>
             );
           })}
@@ -254,6 +339,20 @@ function LedgerPage() {
           </Button>
         </div>
       )}
+
+      <ReasonDialog
+        open={!!undoing}
+        onOpenChange={(o) => !o && setUndoing(null)}
+        title={undoing?.payment ? "Cancel this payment?" : "Reverse this line?"}
+        description={
+          undoing?.payment
+            ? `${undoing.label}. The payment is marked as cancelled and a reversing line is added here, so the balance corrects itself. Nothing is deleted.`
+            : `${undoing?.label ?? ""}. A reversing line is added so the balance corrects itself. The original stays visible, marked as reversed.`
+        }
+        confirmLabel={undoing?.payment ? "Yes, cancel the payment" : "Yes, reverse it"}
+        pending={undo.isPending}
+        onConfirm={(reason) => undo.mutate(reason)}
+      />
     </div>
   );
 }

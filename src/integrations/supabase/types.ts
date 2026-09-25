@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          at: string
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          org_id: string
+          row_id: string | null
+          table_name: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          at?: string
+          id?: number
+          new_row?: Json | null
+          old_row?: Json | null
+          org_id: string
+          row_id?: string | null
+          table_name: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          at?: string
+          id?: number
+          new_row?: Json | null
+          old_row?: Json | null
+          org_id?: string
+          row_id?: string | null
+          table_name?: string
+        }
+        Relationships: []
+      }
       branches: {
         Row: {
           created_at: string
@@ -147,6 +183,9 @@ export type Database = {
           method: Database["public"]["Enums"]["payment_method"]
           client_ref: string | null
           note: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
           org_id: string
           paid_at: string
         }
@@ -159,6 +198,9 @@ export type Database = {
           method?: Database["public"]["Enums"]["payment_method"]
           client_ref?: string | null
           note?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
           org_id: string
           paid_at?: string
         }
@@ -171,6 +213,9 @@ export type Database = {
           method?: Database["public"]["Enums"]["payment_method"]
           client_ref?: string | null
           note?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
           org_id?: string
           paid_at?: string
         }
@@ -264,6 +309,9 @@ export type Database = {
           method: Database["public"]["Enums"]["payment_method"]
           client_ref: string | null
           note: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
           org_id: string
           paid_at: string
           period_label: string
@@ -277,6 +325,9 @@ export type Database = {
           method?: Database["public"]["Enums"]["payment_method"]
           client_ref?: string | null
           note?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
           org_id: string
           paid_at?: string
           period_label: string
@@ -290,6 +341,9 @@ export type Database = {
           method?: Database["public"]["Enums"]["payment_method"]
           client_ref?: string | null
           note?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
           org_id?: string
           paid_at?: string
           period_label?: string
@@ -379,6 +433,10 @@ export type Database = {
           org_id: string
           source_id: string | null
           source_table: string | null
+          reverse_reason: string | null
+          reversed_at: string | null
+          reversed_by: string | null
+          reverses_id: string | null
         }
         Insert: {
           amount?: number
@@ -393,6 +451,10 @@ export type Database = {
           org_id: string
           source_id?: string | null
           source_table?: string | null
+          reverse_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
+          reverses_id?: string | null
         }
         Update: {
           amount?: number
@@ -407,6 +469,10 @@ export type Database = {
           org_id?: string
           source_id?: string | null
           source_table?: string | null
+          reverse_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
+          reverses_id?: string | null
         }
         Relationships: [
           {
@@ -619,9 +685,17 @@ export type Database = {
         Args: { _contribution_id: string }
         Returns: undefined
       }
+      reverse_ledger_entry: {
+        Args: { _entry_id: string; _reason: string }
+        Returns: undefined
+      }
       setup_organization: {
         Args: { _full_name: string; _org_name: string; _phone?: string }
         Returns: string
+      }
+      void_payment: {
+        Args: { _kind: string; _payment_id: string; _reason: string }
+        Returns: undefined
       }
     }
     Enums: {
