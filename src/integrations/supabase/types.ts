@@ -145,6 +145,7 @@ export type Database = {
           id: string
           member_id: string
           method: Database["public"]["Enums"]["payment_method"]
+          client_ref: string | null
           note: string | null
           org_id: string
           paid_at: string
@@ -156,6 +157,7 @@ export type Database = {
           id?: string
           member_id: string
           method?: Database["public"]["Enums"]["payment_method"]
+          client_ref?: string | null
           note?: string | null
           org_id: string
           paid_at?: string
@@ -167,6 +169,7 @@ export type Database = {
           id?: string
           member_id?: string
           method?: Database["public"]["Enums"]["payment_method"]
+          client_ref?: string | null
           note?: string | null
           org_id?: string
           paid_at?: string
@@ -259,6 +262,7 @@ export type Database = {
           id: string
           member_id: string
           method: Database["public"]["Enums"]["payment_method"]
+          client_ref: string | null
           note: string | null
           org_id: string
           paid_at: string
@@ -271,6 +275,7 @@ export type Database = {
           id?: string
           member_id: string
           method?: Database["public"]["Enums"]["payment_method"]
+          client_ref?: string | null
           note?: string | null
           org_id: string
           paid_at?: string
@@ -283,6 +288,7 @@ export type Database = {
           id?: string
           member_id?: string
           method?: Database["public"]["Enums"]["payment_method"]
+          client_ref?: string | null
           note?: string | null
           org_id?: string
           paid_at?: string

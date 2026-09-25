@@ -61,22 +61,37 @@ function Dashboard() {
       let paidThisPeriod = 0;
       let expectedThisPeriod = 0;
 
+      // A member can pay in instalments, so add up their payments before judging them paid.
+      const sumByMember = (rows: { member_id: string; amount: number }[]) => {
+        const out = new Map<string, number>();
+        for (const r of rows) out.set(r.member_id, (out.get(r.member_id) ?? 0) + Number(r.amount));
+        return out;
+      };
+
       for (const due of dues.data ?? []) {
         const period = currentPeriod(due.frequency as Frequency);
-        const forPeriod = payments.filter(
-          (p) => p.due_id === due.id && p.period_label === period,
+        const paidBy = sumByMember(
+          payments.filter((p) => p.due_id === due.id && p.period_label === period),
         );
-        const expected = memberCount * Number(due.amount);
-        const paid = forPeriod.reduce((s, p) => s + Number(p.amount), 0);
-        owed += Math.max(0, expected - paid);
+        const amount = Number(due.amount);
+        for (const m of members.data ?? []) {
+          const paid = paidBy.get(m.id) ?? 0;
+          owed += Math.max(0, amount - paid);
+          if (amount > 0 && paid >= amount) paidThisPeriod += 1;
+        }
         expectedThisPeriod += memberCount;
-        paidThisPeriod += forPeriod.length;
       }
 
       const openContributions = (contributions.data ?? []).map((c) => {
         const selected = (cMembers.data ?? []).filter((m) => m.contribution_id === c.id);
         const paidRows = (cPayments.data ?? []).filter((p) => p.contribution_id === c.id);
         const collected = paidRows.reduce((s, p) => s + Number(p.amount), 0);
+        const perPerson = Number(c.amount_per_person);
+        const paidBy = sumByMember(paidRows);
+        const paidCount = selected.filter((m) => {
+          const paid = paidBy.get(m.member_id) ?? 0;
+          return perPerson > 0 ? paid >= perPerson : paid > 0;
+        }).length;
         const target =
           Number(c.target_amount ?? 0) || selected.length * Number(c.amount_per_person);
         owed += Math.max(0, target - collected);
@@ -84,7 +99,7 @@ function Dashboard() {
           id: c.id,
           name: c.name,
           dueDate: c.due_date,
-          paidCount: paidRows.length,
+          paidCount,
           selectedCount: selected.length,
           collected,
           target,

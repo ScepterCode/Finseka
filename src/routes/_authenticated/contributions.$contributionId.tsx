@@ -116,16 +116,28 @@ function ContributionDetail() {
   };
 
   const record = useMutation({
-    mutationFn: async (i: { memberId: string; amount: number; date: string; note: string; method: PayMethod }) => {
-      const { error } = await supabase.from("contribution_payments").insert({
-        org_id: orgId!,
-        contribution_id: contributionId,
-        member_id: i.memberId,
-        amount: i.amount,
-        paid_at: i.date,
-        note: i.note || null,
-        method: i.method,
-      });
+    mutationFn: async (i: {
+      memberId: string;
+      amount: number;
+      date: string;
+      note: string;
+      method: PayMethod;
+      clientRef: string;
+    }) => {
+      // client_ref makes a retried save a no-op instead of a second payment.
+      const { error } = await supabase.from("contribution_payments").upsert(
+        {
+          org_id: orgId!,
+          contribution_id: contributionId,
+          member_id: i.memberId,
+          amount: i.amount,
+          paid_at: i.date,
+          note: i.note || null,
+          method: i.method,
+          client_ref: i.clientRef,
+        },
+        { onConflict: "client_ref", ignoreDuplicates: true },
+      );
       if (error) throw error;
     },
     onSuccess: () => {
@@ -487,8 +499,8 @@ function ContributionDetail() {
                   : 0
               }
               pending={record.isPending}
-              onSubmit={(amount, date, note, method) =>
-                record.mutate({ memberId: paying.id, amount, date, note, method })
+              onSubmit={(amount, date, note, method, clientRef) =>
+                record.mutate({ memberId: paying.id, amount, date, note, method, clientRef })
               }
             />
           )}
@@ -536,13 +548,14 @@ function PayForm({
   name: string;
   defaultAmount: number;
   pending: boolean;
-  onSubmit: (amount: number, date: string, note: string, method: PayMethod) => void;
+  onSubmit: (amount: number, date: string, note: string, method: PayMethod, clientRef: string) => void;
 }) {
   const [amount, setAmount] = useState(String(defaultAmount || ""));
   const [date, setDate] = useState(todayIso());
   const [note, setNote] = useState("");
   const [method, setMethod] = useState<PayMethod>("cash");
   const [confirm, setConfirm] = useState(false);
+  const [clientRef] = useState(() => crypto.randomUUID());
 
   return (
     <form
@@ -574,7 +587,7 @@ function PayForm({
         title="Confirm payment?"
         description={`${name} paid ${naira(Number(amount || 0))} by ${method === "cash" ? "cash" : "bank transfer"}.`}
         confirmLabel="Yes, record it"
-        onConfirm={() => onSubmit(Number(amount || 0), date, note, method)}
+        onConfirm={() => onSubmit(Number(amount || 0), date, note, method, clientRef)}
       />
     </form>
   );

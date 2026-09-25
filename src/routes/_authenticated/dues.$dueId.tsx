@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { initials, naira, todayIso } from "@/lib/format";
+import { type PayMethod } from "@/lib/methods";
+import { MethodSelect } from "@/components/method-select";
 import {
   currentPeriod,
   frequencyLabels,
@@ -102,16 +104,29 @@ function DueDetail() {
   });
 
   const record = useMutation({
-    mutationFn: async (input: { memberId: string; amount: number; date: string; note: string }) => {
-      const { error } = await supabase.from("due_payments").insert({
-        org_id: orgId!,
-        due_id: dueId,
-        member_id: input.memberId,
-        period_label: activePeriod,
-        amount: input.amount,
-        paid_at: input.date,
-        note: input.note || null,
-      });
+    mutationFn: async (input: {
+      memberId: string;
+      amount: number;
+      date: string;
+      note: string;
+      method: PayMethod;
+      clientRef: string;
+    }) => {
+      // client_ref makes a retried save a no-op instead of a second payment.
+      const { error } = await supabase.from("due_payments").upsert(
+        {
+          org_id: orgId!,
+          due_id: dueId,
+          member_id: input.memberId,
+          period_label: activePeriod,
+          amount: input.amount,
+          paid_at: input.date,
+          note: input.note || null,
+          method: input.method,
+          client_ref: input.clientRef,
+        },
+        { onConflict: "client_ref", ignoreDuplicates: true },
+      );
       if (error) throw error;
     },
     onSuccess: () => {
@@ -197,7 +212,9 @@ function DueDetail() {
         <StatCard label="Collected" value={naira(collected)} tone="good" hint={activePeriod} />
         <StatCard
           label="Still owing"
-          value={naira(Math.max(expected * all.length - collected, 0))}
+          value={naira(
+            all.reduce((s, m) => s + Math.max(expected - (paidByMember.get(m.id) ?? 0), 0), 0),
+          )}
           tone={overdue ? "bad" : "default"}
           hint={overdue ? "This period has passed — overdue" : "For this period"}
         />
@@ -273,9 +290,7 @@ function DueDetail() {
             <PaymentForm
               defaultAmount={Math.max(expected - (paidByMember.get(paying.id) ?? 0), 0)}
               pending={record.isPending}
-              onSubmit={(amount, date, note) =>
-                record.mutate({ memberId: paying.id, amount, date, note })
-              }
+              onSubmit={(v) => record.mutate({ memberId: paying.id, ...v })}
             />
           )}
         </DialogContent>
@@ -291,18 +306,26 @@ function PaymentForm({
 }: {
   defaultAmount: number;
   pending: boolean;
-  onSubmit: (amount: number, date: string, note: string) => void;
+  onSubmit: (v: {
+    amount: number;
+    date: string;
+    note: string;
+    method: PayMethod;
+    clientRef: string;
+  }) => void;
 }) {
   const [amount, setAmount] = useState(String(defaultAmount || ""));
   const [date, setDate] = useState(todayIso());
   const [note, setNote] = useState("");
+  const [method, setMethod] = useState<PayMethod>("cash");
+  const [clientRef] = useState(() => crypto.randomUUID());
 
   return (
     <form
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit(Number(amount || 0), date, note);
+        onSubmit({ amount: Number(amount || 0), date, note, method, clientRef });
       }}
     >
       <div className="space-y-2">
@@ -311,11 +334,12 @@ function PaymentForm({
           id="p-amount"
           required
           type="number"
-          min="0"
+          min="1"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
         />
       </div>
+      <MethodSelect value={method} onChange={setMethod} />
       <div className="space-y-2">
         <Label htmlFor="p-date">Date paid</Label>
         <Input id="p-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
