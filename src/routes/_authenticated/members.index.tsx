@@ -20,7 +20,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/members/")({
   head: () => ({
@@ -160,7 +166,11 @@ function MembersPage() {
                     {tags.length > 0 && (
                       <span className="mt-1.5 flex flex-wrap gap-1.5">
                         {tags.map((t) => (
-                          <Badge key={t} className="bg-primary-soft text-primary" variant="secondary">
+                          <Badge
+                            key={t}
+                            className="bg-primary-soft text-primary"
+                            variant="secondary"
+                          >
                             {t}
                           </Badge>
                         ))}

@@ -67,9 +67,7 @@ function DuesPage() {
         subtitle="Money everybody pays regularly — monthly dues, levies, daily savings."
         action={
           isAdmin ? (
-            <AddDueDialog
-              onDone={() => queryClient.invalidateQueries({ queryKey: ["dues"] })}
-            />
+            <AddDueDialog onDone={() => queryClient.invalidateQueries({ queryKey: ["dues"] })} />
           ) : null
         }
       />

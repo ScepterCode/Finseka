@@ -237,9 +237,9 @@ function DueDetail() {
           <DialogHeader>
             <DialogTitle>Edit {due.data.name}</DialogTitle>
             <DialogDescription>
-              The amount ({naira(due.data.amount)}) cannot be changed here, because it would
-              rewrite what everyone owed in past periods. To charge a new amount, stop this due and
-              create a new one.
+              The amount ({naira(due.data.amount)}) cannot be changed here, because it would rewrite
+              what everyone owed in past periods. To charge a new amount, stop this due and create a
+              new one.
             </DialogDescription>
           </DialogHeader>
           <EditDueForm
@@ -269,7 +269,10 @@ function DueDetail() {
       </div>
 
       {all.length === 0 ? (
-        <EmptyState title="No members yet" hint="Add members first, then come back to tick payments." />
+        <EmptyState
+          title="No members yet"
+          hint="Add members first, then come back to tick payments."
+        />
       ) : (
         <Tabs defaultValue="notpaid">
           <TabsList>
@@ -488,7 +491,11 @@ function MemberList({
     return <EmptyState title="Nobody here" hint="This list is empty for the chosen period." />;
   }
   const noteClass =
-    tone === "good" ? "text-success" : tone === "bad" ? "text-destructive" : "text-muted-foreground";
+    tone === "good"
+      ? "text-success"
+      : tone === "bad"
+        ? "text-destructive"
+        : "text-muted-foreground";
 
   return (
     <ul className="divide-y divide-border overflow-hidden rounded-3xl border border-border bg-card shadow-soft">

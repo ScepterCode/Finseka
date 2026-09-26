@@ -30,7 +30,8 @@ export const Route = createFileRoute("/_authenticated/contributions/")({
       { title: "Contributions — FinSeka" },
       {
         name: "description",
-        content: "One-off contributions like child dedications, building projects and gifts — track who paid.",
+        content:
+          "One-off contributions like child dedications, building projects and gifts — track who paid.",
       },
       { property: "og:title", content: "Contributions — FinSeka" },
       { property: "og:description", content: "Create a contribution and pick the members." },
@@ -223,7 +224,9 @@ function NewContributionDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New contribution</DialogTitle>
-          <DialogDescription>Name it, say how much each person pays, pick people.</DialogDescription>
+          <DialogDescription>
+            Name it, say how much each person pays, pick people.
+          </DialogDescription>
         </DialogHeader>
         <form
           className="space-y-4"
@@ -281,15 +284,25 @@ function NewContributionDialog({
           <div className="space-y-2">
             <Label>Type</Label>
             <div className="grid grid-cols-2 gap-2">
-              <Button type="button" variant={mandatory ? "default" : "outline"} onClick={() => setMandatory(true)}>
+              <Button
+                type="button"
+                variant={mandatory ? "default" : "outline"}
+                onClick={() => setMandatory(true)}
+              >
                 Compulsory
               </Button>
-              <Button type="button" variant={!mandatory ? "default" : "outline"} onClick={() => setMandatory(false)}>
+              <Button
+                type="button"
+                variant={!mandatory ? "default" : "outline"}
+                onClick={() => setMandatory(false)}
+              >
                 Freewill
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              {mandatory ? "Everyone picked must pay the amount." : "People give what they can — nobody is owing."}
+              {mandatory
+                ? "Everyone picked must pay the amount."
+                : "People give what they can — nobody is owing."}
             </p>
           </div>
           <div className="space-y-2">
@@ -307,11 +320,16 @@ function NewContributionDialog({
             <Label>Committee ({committee.length} picked)</Label>
             <div className="max-h-40 space-y-1 overflow-y-auto rounded-2xl border border-border p-3">
               {members.map((m) => (
-                <label key={m.id} className="flex items-center gap-3 rounded-xl px-2 py-1.5 text-sm">
+                <label
+                  key={m.id}
+                  className="flex items-center gap-3 rounded-xl px-2 py-1.5 text-sm"
+                >
                   <Checkbox
                     checked={committee.includes(m.name)}
                     onCheckedChange={(v) =>
-                      setCommittee((prev) => (v ? [...prev, m.name] : prev.filter((n) => n !== m.name)))
+                      setCommittee((prev) =>
+                        v ? [...prev, m.name] : prev.filter((n) => n !== m.name),
+                      )
                     }
                   />
                   {m.name}
@@ -341,9 +359,7 @@ function NewContributionDialog({
                   <Checkbox
                     checked={picked.includes(m.id)}
                     onCheckedChange={(v) =>
-                      setPicked((prev) =>
-                        v ? [...prev, m.id] : prev.filter((id) => id !== m.id),
-                      )
+                      setPicked((prev) => (v ? [...prev, m.id] : prev.filter((id) => id !== m.id)))
                     }
                   />
                   {m.name}

@@ -162,7 +162,11 @@ function MemberProfile() {
   });
 
   // Payments are never deleted: cancelling keeps the record and reverses it in the ledger.
-  const [cancelling, setCancelling] = useState<{ kind: "due" | "contribution"; id: string; label: string } | null>(null);
+  const [cancelling, setCancelling] = useState<{
+    kind: "due" | "contribution";
+    id: string;
+    label: string;
+  } | null>(null);
   const cancelPayment = useMutation({
     mutationFn: async (reason: string) => {
       const { error } = await supabase.rpc("void_payment", {
@@ -346,16 +350,19 @@ function MemberProfile() {
             </Badge>
             <Badge
               className={
-                totalOwing > 0
-                  ? "bg-destructive/12 text-destructive"
-                  : "bg-success/12 text-success"
+                totalOwing > 0 ? "bg-destructive/12 text-destructive" : "bg-success/12 text-success"
               }
               variant="secondary"
             >
               {totalOwing > 0 ? `Owing ${naira(totalOwing)}` : "Good standing"}
             </Badge>
             {isAdmin && (
-              <Button variant="outline" size="sm" className="gap-2" onClick={() => setEditing(true)}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => setEditing(true)}
+              >
                 <Pencil className="size-3.5" /> Edit
               </Button>
             )}
@@ -375,7 +382,12 @@ function MemberProfile() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Total paid to the group" value={naira(totalPaid)} tone="good" hint="All time" />
+        <StatCard
+          label="Total paid to the group"
+          value={naira(totalPaid)}
+          tone="good"
+          hint="All time"
+        />
         <StatCard
           label="Owing now"
           value={naira(totalOwing)}
@@ -401,13 +413,23 @@ function MemberProfile() {
             <EmptyState title="No dues set" hint="Create a due and it will show up here." />
           ) : (
             dueRows.map((d) => (
-              <div key={d.id} className="overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
+              <div
+                key={d.id}
+                className="overflow-hidden rounded-3xl border border-border bg-card shadow-soft"
+              >
                 <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-display text-base font-semibold">{d.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {naira(d.expected)} each {d.frequency === "yearly" ? "year" : d.frequency === "weekly" ? "week" : d.frequency === "daily" ? "day" : "month"} · now:{" "}
-                      {d.currentPeriodLabel}
+                      {naira(d.expected)} each{" "}
+                      {d.frequency === "yearly"
+                        ? "year"
+                        : d.frequency === "weekly"
+                          ? "week"
+                          : d.frequency === "daily"
+                            ? "day"
+                            : "month"}{" "}
+                      · now: {d.currentPeriodLabel}
                     </p>
                   </div>
                   <StatusPill status={d.currentStatus} />
@@ -509,7 +531,10 @@ function MemberProfile() {
 
         <TabsContent value="history" className="mt-5">
           {history.length === 0 ? (
-            <EmptyState title="Nothing paid yet" hint="Record a payment from Dues or Contributions." />
+            <EmptyState
+              title="Nothing paid yet"
+              hint="Record a payment from Dues or Contributions."
+            />
           ) : (
             <ul className="divide-y divide-border overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
               {history.map((h) => (
@@ -518,7 +543,9 @@ function MemberProfile() {
                     {initials(h.label)}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className={`block truncate font-medium ${h.voided ? "line-through opacity-60" : ""}`}>
+                    <span
+                      className={`block truncate font-medium ${h.voided ? "line-through opacity-60" : ""}`}
+                    >
                       {h.label}
                     </span>
                     <span className="block truncate text-xs text-muted-foreground">
@@ -564,8 +591,8 @@ function MemberProfile() {
           <DialogHeader>
             <DialogTitle>Edit {member.data.name}</DialogTitle>
             <DialogDescription>
-              Change their details, labels, or whether they are still active. Past payments keep
-              the name they were recorded with.
+              Change their details, labels, or whether they are still active. Past payments keep the
+              name they were recorded with.
             </DialogDescription>
           </DialogHeader>
           <EditMemberForm
@@ -610,7 +637,13 @@ function EditMemberForm({
   pending,
   onSave,
 }: {
-  initial: { name: string; phone: string; branchId: string | null; tags: string[]; active: boolean };
+  initial: {
+    name: string;
+    phone: string;
+    branchId: string | null;
+    tags: string[];
+    active: boolean;
+  };
   branches: { id: string; name: string }[];
   pending: boolean;
   onSave: (patch: MemberPatch) => void;

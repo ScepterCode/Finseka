@@ -157,7 +157,11 @@ function SettingsPage() {
         <div className="mt-5 flex flex-wrap items-center gap-4">
           <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-2xl border border-border bg-primary-soft text-sm font-semibold text-primary">
             {logoPreview ? (
-              <img src={logoPreview} alt={`${org?.name ?? "Organization"} logo`} className="size-full object-cover" />
+              <img
+                src={logoPreview}
+                alt={`${org?.name ?? "Organization"} logo`}
+                className="size-full object-cover"
+              />
             ) : (
               initials(org?.name || "FinSeka")
             )}
@@ -189,7 +193,9 @@ function SettingsPage() {
                 )}
                 Upload logo
               </Button>
-              <p className="mt-1.5 text-xs text-muted-foreground">PNG or JPG, small file is fine.</p>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                PNG or JPG, small file is fine.
+              </p>
             </div>
           )}
         </div>

@@ -319,9 +319,7 @@ function Transparency() {
     <section className="mx-auto max-w-6xl px-5 py-16 lg:py-24">
       <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
         <div className="order-2 lg:order-1">
-          <p className="text-sm font-semibold tracking-widest text-accent uppercase">
-            Meeting day
-          </p>
+          <p className="text-sm font-semibold tracking-widest text-accent uppercase">Meeting day</p>
           <h2 className="mt-3 font-display text-3xl leading-tight font-semibold tracking-tight text-balance sm:text-4xl">
             Read your report with your chest
           </h2>
@@ -370,7 +368,11 @@ function Transparency() {
 }
 
 const steps = [
-  { n: "1", t: "Add your members", b: "Name, phone, branch. One default group is already waiting." },
+  {
+    n: "1",
+    t: "Add your members",
+    b: "Name, phone, branch. One default group is already waiting.",
+  },
   { n: "2", t: "Set your dues", b: "Monthly, weekly, yearly — whatever your association agreed." },
   { n: "3", t: "Mark payments", b: "Tap a name as money enters. Half payment and notes allowed." },
   { n: "4", t: "Show the balance", b: "Add expenses, and the ledger balances itself. That's all." },

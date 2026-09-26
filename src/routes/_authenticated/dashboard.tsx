@@ -101,7 +101,13 @@ function Dashboard() {
               <div className="h-40 w-40 shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={pie} dataKey="value" innerRadius={42} outerRadius={68} strokeWidth={0}>
+                    <Pie
+                      data={pie}
+                      dataKey="value"
+                      innerRadius={42}
+                      outerRadius={68}
+                      strokeWidth={0}
+                    >
                       {pie.map((slice) => (
                         <Cell key={slice.name} fill={slice.color} />
                       ))}

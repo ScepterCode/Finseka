@@ -24,7 +24,8 @@ export const Route = createFileRoute("/_authenticated/reports")({
       { title: "Reports — FinSeka" },
       {
         name: "description",
-        content: "Money in and out for any month or year, who is owing, and how each contribution did.",
+        content:
+          "Money in and out for any month or year, who is owing, and how each contribution did.",
       },
       { property: "og:title", content: "Reports — FinSeka" },
       { property: "og:description", content: "Simple reports you can read out at a meeting." },
@@ -55,7 +56,8 @@ function ReportsPage() {
   const [year, setYear] = useState(String(thisYear));
   const [month, setMonth] = useState("all");
 
-  const from = month === "all" ? `${year}-01-01` : `${year}-${String(Number(month) + 1).padStart(2, "0")}-01`;
+  const from =
+    month === "all" ? `${year}-01-01` : `${year}-${String(Number(month) + 1).padStart(2, "0")}-01`;
   const to =
     month === "all" ? `${year}-12-31` : localIso(new Date(Number(year), Number(month) + 1, 0));
 
@@ -71,7 +73,9 @@ function ReportsPage() {
         transferIn: r.transfer_in,
         cashOut: r.cash_out,
         transferOut: r.transfer_out,
-        byLabel: r.by_label.map((l) => [l.label, { income: l.income, expense: l.expense }] as const),
+        byLabel: r.by_label.map(
+          (l) => [l.label, { income: l.income, expense: l.expense }] as const,
+        ),
         defaulters: r.defaulters,
         reconciliation: r.contributions.map((c) => ({
           id: c.id,
@@ -137,8 +141,18 @@ function ReportsPage() {
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-3">
-            <StatCard label="Money in" value={naira(report.data.income)} tone="good" hint={periodLabel} />
-            <StatCard label="Money out" value={naira(report.data.expense)} tone="bad" hint={periodLabel} />
+            <StatCard
+              label="Money in"
+              value={naira(report.data.income)}
+              tone="good"
+              hint={periodLabel}
+            />
+            <StatCard
+              label="Money out"
+              value={naira(report.data.expense)}
+              tone="bad"
+              hint={periodLabel}
+            />
             <StatCard
               label="What is left"
               value={naira(report.data.income - report.data.expense)}
@@ -150,7 +164,9 @@ function ReportsPage() {
           <Tabs defaultValue="statement">
             <TabsList className="flex-wrap">
               <TabsTrigger value="statement">Money in and out</TabsTrigger>
-              <TabsTrigger value="defaulters">Who is owing ({report.data.defaulters.length})</TabsTrigger>
+              <TabsTrigger value="defaulters">
+                Who is owing ({report.data.defaulters.length})
+              </TabsTrigger>
               <TabsTrigger value="contributions">Contributions</TabsTrigger>
             </TabsList>
 
@@ -159,21 +175,31 @@ function ReportsPage() {
                 <div className="rounded-3xl border border-border bg-card p-6 shadow-soft">
                   <h3 className="font-display text-base font-semibold">Money in</h3>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Cash: <span className="font-semibold text-foreground">{naira(report.data.cashIn)}</span>
+                    Cash:{" "}
+                    <span className="font-semibold text-foreground">
+                      {naira(report.data.cashIn)}
+                    </span>
                   </p>
                   <p className="text-sm text-muted-foreground">
                     Bank transfer:{" "}
-                    <span className="font-semibold text-foreground">{naira(report.data.transferIn)}</span>
+                    <span className="font-semibold text-foreground">
+                      {naira(report.data.transferIn)}
+                    </span>
                   </p>
                 </div>
                 <div className="rounded-3xl border border-border bg-card p-6 shadow-soft">
                   <h3 className="font-display text-base font-semibold">Money out</h3>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Cash: <span className="font-semibold text-foreground">{naira(report.data.cashOut)}</span>
+                    Cash:{" "}
+                    <span className="font-semibold text-foreground">
+                      {naira(report.data.cashOut)}
+                    </span>
                   </p>
                   <p className="text-sm text-muted-foreground">
                     Bank transfer:{" "}
-                    <span className="font-semibold text-foreground">{naira(report.data.transferOut)}</span>
+                    <span className="font-semibold text-foreground">
+                      {naira(report.data.transferOut)}
+                    </span>
                   </p>
                 </div>
               </div>
@@ -263,7 +289,9 @@ function ReportsPage() {
                           <td className="px-5 py-3">
                             {c.paidPeople}/{c.people}
                           </td>
-                          <td className="px-5 py-3 text-right text-success">{naira(c.collected)}</td>
+                          <td className="px-5 py-3 text-right text-success">
+                            {naira(c.collected)}
+                          </td>
                           <td className="px-5 py-3 text-right">{naira(c.target)}</td>
                         </tr>
                       ))}

@@ -30,8 +30,16 @@ function FullScreenLoader() {
 }
 
 function AuthenticatedLayout() {
-  const { session, loadingSession, loadingProfile, orgId, org, isAdmin, fullName, mustChangePassword } =
-    useAuth();
+  const {
+    session,
+    loadingSession,
+    loadingProfile,
+    orgId,
+    org,
+    isAdmin,
+    fullName,
+    mustChangePassword,
+  } = useAuth();
   const navigate = useNavigate();
   const router = useRouter();
   const queryClient = useQueryClient();

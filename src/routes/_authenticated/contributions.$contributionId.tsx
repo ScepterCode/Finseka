@@ -29,7 +29,10 @@ export const Route = createFileRoute("/_authenticated/contributions/$contributio
   head: () => ({
     meta: [
       { title: "Contribution tracker — FinSeka" },
-      { name: "description", content: "See who paid this contribution, event budget and spending." },
+      {
+        name: "description",
+        content: "See who paid this contribution, event budget and spending.",
+      },
       { property: "og:title", content: "Contribution tracker — FinSeka" },
       { property: "og:description", content: "Paid and not paid register for one contribution." },
       { property: "og:type", content: "website" },
@@ -151,7 +154,10 @@ function ContributionDetail() {
 
   const close = useMutation({
     mutationFn: async (closed: boolean) => {
-      const { error } = await supabase.from("contributions").update({ closed }).eq("id", contributionId);
+      const { error } = await supabase
+        .from("contributions")
+        .update({ closed })
+        .eq("id", contributionId);
       if (error) throw error;
     },
     onSuccess: refresh,
@@ -173,7 +179,12 @@ function ContributionDetail() {
   });
 
   const addExpense = useMutation({
-    mutationFn: async (i: { description: string; amount: number; date: string; method: PayMethod }) => {
+    mutationFn: async (i: {
+      description: string;
+      amount: number;
+      date: string;
+      method: PayMethod;
+    }) => {
       const { error } = await supabase.from("contribution_expenses").insert({
         org_id: orgId!,
         contribution_id: contributionId,
@@ -348,19 +359,28 @@ function ContributionDetail() {
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Collected" value={naira(collected)} tone="good" />
         <StatCard label="Target" value={naira(target)} tone="accent" />
-        <StatCard label="Not paid" value={`${unpaidCount} of ${all.length}`} tone={overdue ? "bad" : "default"} />
+        <StatCard
+          label="Not paid"
+          value={`${unpaidCount} of ${all.length}`}
+          tone={overdue ? "bad" : "default"}
+        />
       </div>
 
       <div className="space-y-4 rounded-3xl border border-border bg-card p-6 shadow-soft">
         <div>
           <Progress value={pct} />
-          <p className="mt-2 text-sm text-muted-foreground">{Math.round(pct)}% of target collected</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {Math.round(pct)}% of target collected
+          </p>
         </div>
         <div>
           <div className="flex h-4 w-full overflow-hidden rounded-full bg-muted">
             <div className="bg-success" style={{ width: `${(paidCount / total) * 100}%` }} />
             <div className="bg-accent" style={{ width: `${(partCount / total) * 100}%` }} />
-            <div className="bg-destructive/70" style={{ width: `${(unpaidCount / total) * 100}%` }} />
+            <div
+              className="bg-destructive/70"
+              style={{ width: `${(unpaidCount / total) * 100}%` }}
+            />
           </div>
           <div className="mt-2 flex flex-wrap gap-4 text-sm">
             <Legend className="bg-success" label={`Paid ${paidCount}`} />
@@ -415,11 +435,15 @@ function ContributionDetail() {
                     </td>
                     <td className="px-4 py-3 text-right font-medium">{naira(r.paid)}</td>
                     {c.mandatory && (
-                      <td className={`px-4 py-3 text-right ${r.balance > 0 ? "text-destructive" : ""}`}>
+                      <td
+                        className={`px-4 py-3 text-right ${r.balance > 0 ? "text-destructive" : ""}`}
+                      >
                         {naira(r.balance)}
                       </td>
                     )}
-                    <td className="px-4 py-3 text-muted-foreground">{r.date ? shortDate(r.date) : "—"}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {r.date ? shortDate(r.date) : "—"}
+                    </td>
                     <td className="px-4 py-3">
                       {r.method ? <Badge variant="outline">{methodShort(r.method)}</Badge> : "—"}
                     </td>
@@ -522,7 +546,8 @@ function ContributionDetail() {
               confirmLabel="Yes, close and post"
               onConfirm={() => postExpenses.mutate()}
             >
-              {postExpenses.isPending && <Loader2 className="size-4 animate-spin" />} Close event & post to ledger
+              {postExpenses.isPending && <Loader2 className="size-4 animate-spin" />} Close event &
+              post to ledger
             </ConfirmButton>
           )
         )}
@@ -557,7 +582,9 @@ function ContributionDetail() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add spending</DialogTitle>
-            <DialogDescription>Stays on this event until you post it to the ledger.</DialogDescription>
+            <DialogDescription>
+              Stays on this event until you post it to the ledger.
+            </DialogDescription>
           </DialogHeader>
           <ExpenseForm pending={addExpense.isPending} onSubmit={(v) => addExpense.mutate(v)} />
         </DialogContent>
@@ -576,8 +603,13 @@ function Legend({ className, label }: { className: string; label: string }) {
 
 function StatusBadge({ status, overdue }: { status: Status; overdue: boolean }) {
   if (status === "paid" || status === "gave")
-    return <Badge className="bg-success/15 text-success hover:bg-success/15">{status === "gave" ? "Gave" : "Paid"}</Badge>;
-  if (status === "part") return <Badge className="bg-accent/15 text-accent hover:bg-accent/15">Part paid</Badge>;
+    return (
+      <Badge className="bg-success/15 text-success hover:bg-success/15">
+        {status === "gave" ? "Gave" : "Paid"}
+      </Badge>
+    );
+  if (status === "part")
+    return <Badge className="bg-accent/15 text-accent hover:bg-accent/15">Part paid</Badge>;
   return (
     <Badge variant="secondary" className={overdue ? "text-destructive" : "text-muted-foreground"}>
       {overdue ? "Overdue" : "Not paid"}
@@ -594,7 +626,13 @@ function PayForm({
   name: string;
   defaultAmount: number;
   pending: boolean;
-  onSubmit: (amount: number, date: string, note: string, method: PayMethod, clientRef: string) => void;
+  onSubmit: (
+    amount: number,
+    date: string,
+    note: string,
+    method: PayMethod,
+    clientRef: string,
+  ) => void;
 }) {
   const [amount, setAmount] = useState(String(defaultAmount || ""));
   const [date, setDate] = useState(todayIso());
@@ -613,7 +651,14 @@ function PayForm({
     >
       <div className="space-y-2">
         <Label htmlFor="cp-amount">How much did they pay? (₦)</Label>
-        <Input id="cp-amount" required type="number" min="1" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <Input
+          id="cp-amount"
+          required
+          type="number"
+          min="1"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+        />
       </div>
       <MethodSelect value={method} onChange={setMethod} />
       <div className="space-y-2">
@@ -686,7 +731,12 @@ function EditContributionForm({
       </div>
       <div className="space-y-2">
         <Label htmlFor="ec-due">Due date (optional)</Label>
-        <Input id="ec-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+        <Input
+          id="ec-due"
+          type="date"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="ec-target">Target to collect (₦, optional)</Label>
@@ -736,11 +786,24 @@ function ExpenseForm({
     >
       <div className="space-y-2">
         <Label htmlFor="ce-desc">What was it for?</Label>
-        <Input id="ce-desc" required value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Canopy hire" />
+        <Input
+          id="ce-desc"
+          required
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Canopy hire"
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="ce-amount">Amount (₦)</Label>
-        <Input id="ce-amount" required type="number" min="1" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <Input
+          id="ce-amount"
+          required
+          type="number"
+          min="1"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+        />
       </div>
       <MethodSelect value={method} onChange={setMethod} label="Paid by cash or transfer?" />
       <div className="space-y-2">

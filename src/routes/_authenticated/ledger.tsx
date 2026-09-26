@@ -194,13 +194,33 @@ function LedgerPage() {
           value={naira(allTime.data?.balance ?? 0)}
           hint="Cash plus bank, all time"
         />
-        <StatCard label="Cash at hand" value={naira(allTime.data?.cash ?? 0)} tone="accent" hint="Physical cash" />
-        <StatCard label="In the bank" value={naira(allTime.data?.bank ?? 0)} tone="accent" hint="Bank transfers" />
+        <StatCard
+          label="Cash at hand"
+          value={naira(allTime.data?.cash ?? 0)}
+          tone="accent"
+          hint="Physical cash"
+        />
+        <StatCard
+          label="In the bank"
+          value={naira(allTime.data?.bank ?? 0)}
+          tone="accent"
+          hint="Bank transfers"
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <StatCard label="Money in" value={naira(rangeIncome)} tone="good" hint={activeRange.label} />
-        <StatCard label="Money out" value={naira(rangeExpense)} tone="bad" hint={activeRange.label} />
+        <StatCard
+          label="Money in"
+          value={naira(rangeIncome)}
+          tone="good"
+          hint={activeRange.label}
+        />
+        <StatCard
+          label="Money out"
+          value={naira(rangeExpense)}
+          tone="bad"
+          hint={activeRange.label}
+        />
       </div>
 
       <div className="space-y-4">

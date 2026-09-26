@@ -10,20 +10,7 @@ export const frequencyLabels: Record<Frequency, string> = {
   custom: "Whenever",
 };
 
-const months = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
+const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function weekNumber(d: Date) {
   const start = new Date(d.getFullYear(), 0, 1);
@@ -64,14 +51,20 @@ export function periodEntries(frequency: Frequency): PeriodEntry[] {
   if (frequency === "weekly") {
     for (let i = 0; i < 12; i++) {
       const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i * 7);
-      out.push({ label: `Week ${weekNumber(d)}, ${d.getFullYear()}`, ends_on: localIso(weekEnd(d)) });
+      out.push({
+        label: `Week ${weekNumber(d)}, ${d.getFullYear()}`,
+        ends_on: localIso(weekEnd(d)),
+      });
     }
     return out;
   }
   if (frequency === "daily") {
     for (let i = 0; i < 21; i++) {
       const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-      out.push({ label: `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`, ends_on: localIso(d) });
+      out.push({
+        label: `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`,
+        ends_on: localIso(d),
+      });
     }
     return out;
   }

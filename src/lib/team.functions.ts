@@ -13,12 +13,20 @@ function tempPassword() {
   return `Fin-${out}`;
 }
 
-async function requireAdminOrg(supabase: {
-  from: (t: string) => {
-    select: (c: string) => { eq: (k: string, v: string) => { maybeSingle: () => Promise<{ data: { org_id: string | null } | null }> } };
-  };
-  rpc: (n: string) => Promise<{ data: unknown }>;
-}, userId: string) {
+async function requireAdminOrg(
+  supabase: {
+    from: (t: string) => {
+      select: (c: string) => {
+        eq: (
+          k: string,
+          v: string,
+        ) => { maybeSingle: () => Promise<{ data: { org_id: string | null } | null }> };
+      };
+    };
+    rpc: (n: string) => Promise<{ data: unknown }>;
+  },
+  userId: string,
+) {
   const { data: profile } = await supabase
     .from("profiles")
     .select("org_id")
@@ -33,7 +41,9 @@ async function requireAdminOrg(supabase: {
 export const inviteTeamMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: InviteInput) => {
-    const email = String(input.email ?? "").trim().toLowerCase();
+    const email = String(input.email ?? "")
+      .trim()
+      .toLowerCase();
     const fullName = String(input.fullName ?? "").trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Enter a valid email address.");
     if (fullName.length < 2) throw new Error("Enter the person's name.");
@@ -69,7 +79,10 @@ export const inviteTeamMember = createServerFn({ method: "POST" })
 
     const { error: roleError } = await supabaseAdmin
       .from("user_roles")
-      .upsert({ user_id: newUserId, org_id: orgId, role: data.role }, { onConflict: "user_id,org_id" });
+      .upsert(
+        { user_id: newUserId, org_id: orgId, role: data.role },
+        { onConflict: "user_id,org_id" },
+      );
     if (roleError) throw new Error(roleError.message);
 
     const emailed = false;
@@ -92,7 +105,8 @@ export const revokeTeamMember = createServerFn({ method: "POST" })
       .select("org_id")
       .eq("id", data.userId)
       .maybeSingle();
-    if (!target || target.org_id !== orgId) throw new Error("That person is not in your organization.");
+    if (!target || target.org_id !== orgId)
+      throw new Error("That person is not in your organization.");
 
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.userId);
     if (error) throw new Error(error.message);
