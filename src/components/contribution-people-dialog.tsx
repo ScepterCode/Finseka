@@ -4,6 +4,7 @@ import { Loader2, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAll } from "@/lib/fetch-all";
 import { friendlyError } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -43,12 +44,15 @@ export function ContributionPeopleDialog({
     queryKey: ["members-simple", orgId],
     enabled: open,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("members")
-        .select("id, name")
-        .eq("active", true)
-        .order("name");
-      if (error) throw error;
+      const data = await fetchAll((from, to) =>
+        supabase
+          .from("members")
+          .select("id, name")
+          .eq("active", true)
+          .order("name")
+          .order("id")
+          .range(from, to),
+      );
       return data;
     },
   });

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { friendlyError } from "@/lib/errors";
 
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAll } from "@/lib/fetch-all";
 import { useAuth } from "@/hooks/useAuth";
 import { naira, shortDate } from "@/lib/format";
 import { EmptyState, PageHeader } from "@/components/page-parts";
@@ -51,15 +52,18 @@ function ContributionsPage() {
     queryKey: ["contributions", orgId],
     enabled: !!orgId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("contributions")
-        .select(
-          "id, name, reason, amount_per_person, target_amount, due_date, closed, mandatory, contribution_members(member_id), contribution_payments(amount, member_id)",
-        )
-        // Filters the embedded payments only; cancelled payments do not count.
-        .is("contribution_payments.voided_at", null)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
+      const data = await fetchAll((from, to) =>
+        supabase
+          .from("contributions")
+          .select(
+            "id, name, reason, amount_per_person, target_amount, due_date, closed, mandatory, contribution_members(member_id), contribution_payments(amount, member_id)",
+          )
+          // Filters the embedded payments only; cancelled payments do not count.
+          .is("contribution_payments.voided_at", null)
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      );
       return data;
     },
   });
@@ -68,12 +72,15 @@ function ContributionsPage() {
     queryKey: ["members", orgId],
     enabled: !!orgId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("members")
-        .select("id, name")
-        .eq("active", true)
-        .order("name");
-      if (error) throw error;
+      const data = await fetchAll((from, to) =>
+        supabase
+          .from("members")
+          .select("id, name")
+          .eq("active", true)
+          .order("name")
+          .order("id")
+          .range(from, to),
+      );
       return data;
     },
   });

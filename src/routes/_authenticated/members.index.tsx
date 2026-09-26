@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { friendlyError } from "@/lib/errors";
 
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAll } from "@/lib/fetch-all";
 import { useAuth } from "@/hooks/useAuth";
 import { initials, todayIso } from "@/lib/format";
 import { PageHeader, EmptyState } from "@/components/page-parts";
@@ -55,11 +56,14 @@ function MembersPage() {
     queryKey: ["members", orgId],
     enabled: !!orgId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("members")
-        .select("id, name, phone, active, tags, branch_id, branches(name)")
-        .order("name");
-      if (error) throw error;
+      const data = await fetchAll((from, to) =>
+        supabase
+          .from("members")
+          .select("id, name, phone, active, tags, branch_id, branches(name)")
+          .order("name")
+          .order("id")
+          .range(from, to),
+      );
       return data;
     },
   });
@@ -68,8 +72,9 @@ function MembersPage() {
     queryKey: ["branches", orgId],
     enabled: !!orgId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("branches").select("id, name").order("name");
-      if (error) throw error;
+      const data = await fetchAll((from, to) =>
+        supabase.from("branches").select("id, name").order("name").order("id").range(from, to),
+      );
       return data;
     },
   });

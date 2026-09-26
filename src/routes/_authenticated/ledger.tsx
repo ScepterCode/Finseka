@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { friendlyError } from "@/lib/errors";
 
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAll } from "@/lib/fetch-all";
 import { useAuth } from "@/hooks/useAuth";
 import { localIso, naira, shortDate, todayIso } from "@/lib/format";
 import { fetchLedgerTotals } from "@/lib/totals";
@@ -96,11 +97,14 @@ function LedgerPage() {
     queryKey: ["members-simple", orgId],
     enabled: !!orgId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("members")
-        .select("id, name")
-        .order("name", { ascending: true });
-      if (error) throw error;
+      const data = await fetchAll((from, to) =>
+        supabase
+          .from("members")
+          .select("id, name")
+          .order("name", { ascending: true })
+          .order("id")
+          .range(from, to),
+      );
       return data;
     },
   });

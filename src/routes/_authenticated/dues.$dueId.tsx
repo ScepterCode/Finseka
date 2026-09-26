@@ -5,6 +5,7 @@ import { ArrowLeft, Check, Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAll } from "@/lib/fetch-all";
 import { useAuth } from "@/hooks/useAuth";
 import { friendlyError } from "@/lib/errors";
 import { initials, naira, shortDate, todayIso } from "@/lib/format";
@@ -77,12 +78,15 @@ function DueDetail() {
     queryKey: ["members", orgId],
     enabled: !!orgId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("members")
-        .select("id, name, phone, joined_on")
-        .eq("active", true)
-        .order("name");
-      if (error) throw error;
+      const data = await fetchAll((from, to) =>
+        supabase
+          .from("members")
+          .select("id, name, phone, joined_on")
+          .eq("active", true)
+          .order("name")
+          .order("id")
+          .range(from, to),
+      );
       return data as Member[];
     },
   });
@@ -108,13 +112,16 @@ function DueDetail() {
     queryKey: ["due-payments", dueId, selected?.period_start],
     enabled: !!selected,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("due_payments")
-        .select("id, member_id, amount, paid_at, note")
-        .eq("due_id", dueId)
-        .eq("period_start", selected!.period_start)
-        .is("voided_at", null);
-      if (error) throw error;
+      const data = await fetchAll((from, to) =>
+        supabase
+          .from("due_payments")
+          .select("id, member_id, amount, paid_at, note")
+          .eq("due_id", dueId)
+          .eq("period_start", selected!.period_start)
+          .is("voided_at", null)
+          .order("id")
+          .range(from, to),
+      );
       return data;
     },
   });

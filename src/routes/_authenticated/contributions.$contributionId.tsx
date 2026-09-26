@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { friendlyError } from "@/lib/errors";
 
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAll } from "@/lib/fetch-all";
 import { useAuth } from "@/hooks/useAuth";
 import { naira, shortDate, todayIso } from "@/lib/format";
 import { methodShort, type PayMethod } from "@/lib/methods";
@@ -75,11 +76,14 @@ function ContributionDetail() {
   const people = useQuery({
     queryKey: ["contribution-members", contributionId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("contribution_members")
-        .select("member_id, members(id, name, phone)")
-        .eq("contribution_id", contributionId);
-      if (error) throw error;
+      const data = await fetchAll((from, to) =>
+        supabase
+          .from("contribution_members")
+          .select("member_id, members(id, name, phone)")
+          .eq("contribution_id", contributionId)
+          .order("id")
+          .range(from, to),
+      );
       return (data ?? [])
         .map((r) => r.members as Person | null)
         .filter((m): m is Person => !!m)
@@ -90,13 +94,16 @@ function ContributionDetail() {
   const payments = useQuery({
     queryKey: ["contribution-payments", contributionId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("contribution_payments")
-        .select("id, member_id, amount, paid_at, note, method")
-        .eq("contribution_id", contributionId)
-        .is("voided_at", null)
-        .order("paid_at", { ascending: false });
-      if (error) throw error;
+      const data = await fetchAll((from, to) =>
+        supabase
+          .from("contribution_payments")
+          .select("id, member_id, amount, paid_at, note, method")
+          .eq("contribution_id", contributionId)
+          .is("voided_at", null)
+          .order("paid_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      );
       return data;
     },
   });
@@ -104,12 +111,15 @@ function ContributionDetail() {
   const expenses = useQuery({
     queryKey: ["contribution-expenses", contributionId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("contribution_expenses")
-        .select("id, description, amount, method, spent_at")
-        .eq("contribution_id", contributionId)
-        .order("spent_at", { ascending: false });
-      if (error) throw error;
+      const data = await fetchAll((from, to) =>
+        supabase
+          .from("contribution_expenses")
+          .select("id, description, amount, method, spent_at")
+          .eq("contribution_id", contributionId)
+          .order("spent_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      );
       return data;
     },
   });

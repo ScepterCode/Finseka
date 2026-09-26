@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { friendlyError } from "@/lib/errors";
 
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAll } from "@/lib/fetch-all";
 import { useAuth } from "@/hooks/useAuth";
 import { naira, todayIso } from "@/lib/format";
 import { frequencyLabels, type Frequency } from "@/lib/periods";
@@ -53,11 +54,14 @@ function DuesPage() {
     queryKey: ["dues", orgId],
     enabled: !!orgId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("dues")
-        .select("id, name, amount, frequency, notes, active")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
+      const data = await fetchAll((from, to) =>
+        supabase
+          .from("dues")
+          .select("id, name, amount, frequency, notes, active")
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      );
       return data;
     },
   });

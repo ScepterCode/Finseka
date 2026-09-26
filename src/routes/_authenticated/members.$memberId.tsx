@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { friendlyError } from "@/lib/errors";
 
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAll } from "@/lib/fetch-all";
 import { useAuth } from "@/hooks/useAuth";
 import { naira, shortDate, initials } from "@/lib/format";
 import { methodShort } from "@/lib/methods";
@@ -74,12 +75,15 @@ function MemberProfile() {
   const dues = useQuery({
     queryKey: ["dues-for-member", memberId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("dues")
-        .select("id, name, amount, frequency, penalty_amount, active")
-        .eq("active", true)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
+      const data = await fetchAll((from, to) =>
+        supabase
+          .from("dues")
+          .select("id, name, amount, frequency, penalty_amount, active")
+          .eq("active", true)
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      );
       return data;
     },
   });
@@ -87,14 +91,17 @@ function MemberProfile() {
   const duePayments = useQuery({
     queryKey: ["member-due-payments", memberId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("due_payments")
-        .select(
-          "id, due_id, amount, paid_at, period_label, method, note, voided_at, void_reason, dues(name)",
-        )
-        .eq("member_id", memberId)
-        .order("paid_at", { ascending: false });
-      if (error) throw error;
+      const data = await fetchAll((from, to) =>
+        supabase
+          .from("due_payments")
+          .select(
+            "id, due_id, amount, paid_at, period_label, method, note, voided_at, void_reason, dues(name)",
+          )
+          .eq("member_id", memberId)
+          .order("paid_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      );
       return data;
     },
   });
@@ -108,11 +115,14 @@ function MemberProfile() {
   const obligations = useQuery({
     queryKey: ["member-contributions", memberId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("contribution_members")
-        .select("contribution_id")
-        .eq("member_id", memberId);
-      if (error) throw error;
+      const data = await fetchAll((from, to) =>
+        supabase
+          .from("contribution_members")
+          .select("contribution_id")
+          .eq("member_id", memberId)
+          .order("id")
+          .range(from, to),
+      );
       return (data ?? []).map((r) => r.contribution_id);
     },
   });
@@ -120,10 +130,13 @@ function MemberProfile() {
   const contributions = useQuery({
     queryKey: ["contributions-for-member", memberId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("contributions")
-        .select("id, name, amount_per_person, due_date, closed, mandatory");
-      if (error) throw error;
+      const data = await fetchAll((from, to) =>
+        supabase
+          .from("contributions")
+          .select("id, name, amount_per_person, due_date, closed, mandatory")
+          .order("id")
+          .range(from, to),
+      );
       return data;
     },
   });
@@ -131,14 +144,17 @@ function MemberProfile() {
   const contribPayments = useQuery({
     queryKey: ["member-contrib-payments", memberId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("contribution_payments")
-        .select(
-          "id, contribution_id, amount, paid_at, method, note, voided_at, void_reason, contributions(name)",
-        )
-        .eq("member_id", memberId)
-        .order("paid_at", { ascending: false });
-      if (error) throw error;
+      const data = await fetchAll((from, to) =>
+        supabase
+          .from("contribution_payments")
+          .select(
+            "id, contribution_id, amount, paid_at, method, note, voided_at, void_reason, contributions(name)",
+          )
+          .eq("member_id", memberId)
+          .order("paid_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      );
       return data;
     },
   });
@@ -147,8 +163,9 @@ function MemberProfile() {
     queryKey: ["branches", orgId],
     enabled: !!orgId && isAdmin,
     queryFn: async () => {
-      const { data, error } = await supabase.from("branches").select("id, name").order("name");
-      if (error) throw error;
+      const data = await fetchAll((from, to) =>
+        supabase.from("branches").select("id, name").order("name").order("id").range(from, to),
+      );
       return data;
     },
   });
