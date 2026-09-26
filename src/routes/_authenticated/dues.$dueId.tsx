@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Check, Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
+import { friendlyError } from "@/lib/errors";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { initials, naira, todayIso } from "@/lib/format";
@@ -137,7 +139,7 @@ function DueDetail() {
       queryClient.invalidateQueries({ queryKey: ["ledger"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   const [editing, setEditing] = useState(false);
@@ -153,7 +155,7 @@ function DueDetail() {
       queryClient.invalidateQueries({ queryKey: ["dues"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   if (due.isLoading || members.isLoading) {

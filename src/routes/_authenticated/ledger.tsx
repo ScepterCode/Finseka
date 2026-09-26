@@ -4,6 +4,8 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { ArrowDownLeft, ArrowUpRight, Loader2, Plus, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { friendlyError } from "@/lib/errors";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { localIso, naira, shortDate, todayIso } from "@/lib/format";
@@ -161,7 +163,7 @@ function LedgerPage() {
         queryClient.invalidateQueries({ queryKey: [key] });
       }
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   const rows = entries.data?.pages.flat() ?? [];
@@ -415,7 +417,7 @@ function AddEntryDialog({
       setOpen(false);
       onDone();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   return (
@@ -480,7 +482,7 @@ function AddEntryDialog({
               id="e-amount"
               required
               type="number"
-              min="0"
+              min="1"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
             />

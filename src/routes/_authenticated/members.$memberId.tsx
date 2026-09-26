@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
+import { friendlyError } from "@/lib/errors";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { naira, shortDate, initials } from "@/lib/format";
@@ -158,7 +160,7 @@ function MemberProfile() {
       queryClient.invalidateQueries({ queryKey: ["member", memberId] });
       queryClient.invalidateQueries({ queryKey: ["members"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   // Payments are never deleted: cancelling keeps the record and reverses it in the ledger.
@@ -193,7 +195,7 @@ function MemberProfile() {
         queryClient.invalidateQueries({ queryKey: [key] });
       }
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   const loading =

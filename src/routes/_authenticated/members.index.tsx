@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Search, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
+import { friendlyError } from "@/lib/errors";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { initials } from "@/lib/format";
@@ -300,7 +302,7 @@ function AddMemberDialog({
       setOpen(false);
       onDone();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   return (
@@ -378,7 +380,7 @@ function AddBranchDialog({ onDone }: { onDone: () => void }) {
       setOpen(false);
       onDone();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   return (

@@ -5,6 +5,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { Loader2, Plus, ShieldCheck, Trash2, Upload, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
+import { friendlyError } from "@/lib/errors";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLogoUrl } from "@/hooks/useLogoUrl";
@@ -100,7 +102,7 @@ function SettingsPage() {
       toast.success("Organization updated");
       refreshMe();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   const uploadLogo = useMutation({
@@ -119,7 +121,7 @@ function SettingsPage() {
       toast.success("Logo uploaded");
       refreshMe();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   const revokeMember = useMutation({
@@ -128,7 +130,7 @@ function SettingsPage() {
       toast.success("Access removed");
       queryClient.invalidateQueries({ queryKey: ["team"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   const deleteAccount = useMutation({
@@ -138,7 +140,7 @@ function SettingsPage() {
       queryClient.clear();
       navigate({ to: "/", replace: true });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   return (
@@ -348,7 +350,7 @@ function ShareAccess({ onDone }: { onDone: () => void }) {
       setEmail("");
       onDone();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   return (
@@ -460,7 +462,7 @@ function AddBranch({ onDone }: { onDone: () => void }) {
       setOpen(false);
       onDone();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   return (

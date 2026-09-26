@@ -5,6 +5,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { Loader2, LogOut } from "lucide-react";
 import { toast } from "sonner";
 
+import { friendlyError } from "@/lib/errors";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { completePasswordChange } from "@/lib/team.functions";
@@ -113,7 +115,7 @@ function ChangePasswordScreen() {
       toast.success("Password changed. Welcome to FinSeka!");
       refreshMe();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   return (
@@ -180,7 +182,7 @@ function OrganizationSetup({ defaultName }: { defaultName: string }) {
       toast.success("Organization created. Welcome!");
       refreshMe();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   return (

@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
+import { friendlyError } from "@/lib/errors";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { naira } from "@/lib/format";
@@ -136,7 +138,7 @@ function AddDueDialog({ onDone }: { onDone: () => void }) {
       setOpen(false);
       onDone();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   return (
@@ -174,7 +176,7 @@ function AddDueDialog({ onDone }: { onDone: () => void }) {
               id="d-amount"
               required
               type="number"
-              min="0"
+              min="1"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="1000"

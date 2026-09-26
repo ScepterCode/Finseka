@@ -63,7 +63,7 @@ SELECT tests.fails('another organization''s admin cannot cancel them',
 
 -- Event spending is locked once posted
 SELECT tests.as_user(:bola) \gset
-INSERT INTO contributions (org_id, name) VALUES (:'org2', 'Burial') RETURNING id AS c \gset
+INSERT INTO contributions (org_id, name, amount_per_person) VALUES (:'org2', 'Burial', 2000) RETURNING id AS c \gset
 INSERT INTO contribution_expenses (org_id, contribution_id, description, amount, method)
 VALUES (:'org2', :'c', 'Canopy', 20000, 'cash'), (:'org2', :'c', 'Sound', 15000, 'transfer');
 SELECT post_contribution_expenses(:'c');

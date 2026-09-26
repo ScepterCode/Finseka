@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { friendlyError } from "@/lib/errors";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { naira, shortDate, todayIso } from "@/lib/format";
@@ -149,7 +151,7 @@ function ContributionDetail() {
       setPaying(null);
       refresh();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   const close = useMutation({
@@ -161,7 +163,7 @@ function ContributionDetail() {
       if (error) throw error;
     },
     onSuccess: refresh,
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   const [editing, setEditing] = useState(false);
@@ -175,7 +177,7 @@ function ContributionDetail() {
       setEditing(false);
       refresh();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   const addExpense = useMutation({
@@ -200,7 +202,7 @@ function ContributionDetail() {
       setAddingExpense(false);
       refresh();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   const removeExpense = useMutation({
@@ -209,7 +211,7 @@ function ContributionDetail() {
       if (error) throw error;
     },
     onSuccess: refresh,
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   const postExpenses = useMutation({
@@ -224,7 +226,7 @@ function ContributionDetail() {
       toast.success("Event closed and spending posted to the ledger");
       refresh();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   if (contribution.isLoading || people.isLoading || payments.isLoading) {

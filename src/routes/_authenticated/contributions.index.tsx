@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
+import { friendlyError } from "@/lib/errors";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { naira, shortDate } from "@/lib/format";
@@ -211,7 +213,7 @@ function NewContributionDialog({
       setOpen(false);
       onDone();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
   return (
@@ -255,7 +257,8 @@ function NewContributionDialog({
               <Input
                 id="c-amount"
                 type="number"
-                min="0"
+                required={mandatory}
+                min={mandatory ? "1" : "0"}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="2000"
