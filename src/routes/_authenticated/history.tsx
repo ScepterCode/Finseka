@@ -3,6 +3,7 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { History, Loader2 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAll } from "@/lib/fetch-all";
 import { useAuth } from "@/hooks/useAuth";
 import { describeChange, type Entry } from "@/lib/history";
 import { EmptyState, PageHeader } from "@/components/page-parts";
@@ -35,19 +36,22 @@ function HistoryPage() {
     enabled: !!orgId,
     queryFn: async () => {
       const [people, members, dues, contributions] = await Promise.all([
-        supabase.from("profiles").select("id, full_name"),
-        supabase.from("members").select("id, name"),
-        supabase.from("dues").select("id, name"),
-        supabase.from("contributions").select("id, name"),
+        fetchAll((from, to) =>
+          supabase.from("profiles").select("id, full_name").order("id").range(from, to),
+        ),
+        fetchAll((from, to) =>
+          supabase.from("members").select("id, name").order("id").range(from, to),
+        ),
+        fetchAll((from, to) =>
+          supabase.from("dues").select("id, name").order("id").range(from, to),
+        ),
+        fetchAll((from, to) =>
+          supabase.from("contributions").select("id, name").order("id").range(from, to),
+        ),
       ]);
       const map = new Map<string, string>();
-      for (const p of people.data ?? []) map.set(p.id, p.full_name || "A team member");
-      for (const r of [
-        ...(members.data ?? []),
-        ...(dues.data ?? []),
-        ...(contributions.data ?? []),
-      ])
-        map.set(r.id, r.name);
+      for (const p of people) map.set(p.id, p.full_name || "A team member");
+      for (const r of [...members, ...dues, ...contributions]) map.set(r.id, r.name);
       return map;
     },
   });

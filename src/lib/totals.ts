@@ -98,3 +98,9 @@ export async function fetchMemberStanding(memberId: string) {
     penalty: Number(l.penalty),
   })) as StandingLine[];
 }
+
+export async function fetchContributionProgress(openOnly = false) {
+  const { data, error } = await supabase.rpc("contribution_progress", { _open_only: openOnly });
+  if (error) throw error;
+  return (data ?? []) as unknown as ContributionProgress[];
+}

@@ -8,6 +8,7 @@ import { friendlyError } from "@/lib/errors";
 
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAll } from "@/lib/fetch-all";
+import { fetchContributionProgress } from "@/lib/totals";
 import { useAuth } from "@/hooks/useAuth";
 import { naira, shortDate } from "@/lib/format";
 import { EmptyState, PageHeader } from "@/components/page-parts";
@@ -52,19 +53,21 @@ function ContributionsPage() {
     queryKey: ["contributions", orgId],
     enabled: !!orgId,
     queryFn: async () => {
-      const data = await fetchAll((from, to) =>
-        supabase
-          .from("contributions")
-          .select(
-            "id, name, reason, amount_per_person, target_amount, due_date, closed, mandatory, contribution_members(member_id), contribution_payments(amount, member_id)",
-          )
-          // Filters the embedded payments only; cancelled payments do not count.
-          .is("contribution_payments.voided_at", null)
-          .order("created_at", { ascending: false })
-          .order("id")
-          .range(from, to),
-      );
-      return data;
+      // Progress (collected, people paid in full, target) comes from the database, the
+      // same numbers the dashboard and reports show.
+      const [list, progress] = await Promise.all([
+        fetchAll((from, to) =>
+          supabase
+            .from("contributions")
+            .select("id, name, reason, amount_per_person, due_date, closed, mandatory")
+            .order("created_at", { ascending: false })
+            .order("id")
+            .range(from, to),
+        ),
+        fetchContributionProgress(),
+      ]);
+      const byId = new Map(progress.map((p) => [p.id, p]));
+      return list.map((c) => ({ ...c, progress: byId.get(c.id) }));
     },
   });
 
@@ -112,12 +115,10 @@ function ContributionsPage() {
       ) : (
         <ul className="grid gap-4">
           {(contributions.data ?? []).map((c) => {
-            const selected = (c.contribution_members as { member_id: string }[]).length;
-            const payments = c.contribution_payments as { amount: number; member_id: string }[];
-            const paidPeople = new Set(payments.map((p) => p.member_id)).size;
-            const collected = payments.reduce((s, p) => s + Number(p.amount), 0);
-            const target =
-              Number(c.target_amount ?? 0) || Number(c.amount_per_person) * selected || 0;
+            const selected = c.progress?.picked ?? 0;
+            const paidPeople = c.progress?.paid_people ?? 0;
+            const collected = Number(c.progress?.collected ?? 0);
+            const target = Number(c.progress?.target ?? 0);
             const pct = target > 0 ? Math.min((collected / target) * 100, 100) : 0;
 
             return (

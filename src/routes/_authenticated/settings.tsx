@@ -6,6 +6,7 @@ import { Loader2, Plus, ShieldCheck, Trash2, Upload, UserPlus } from "lucide-rea
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAll } from "@/lib/fetch-all";
 import { useAuth } from "@/hooks/useAuth";
 import { useLogoUrl } from "@/hooks/useLogoUrl";
 import { friendlyError } from "@/lib/errors";
@@ -77,14 +78,21 @@ function SettingsPage() {
     queryKey: ["team", orgId],
     enabled: !!orgId,
     queryFn: async () => {
-      const [profilesRes, rolesRes] = await Promise.all([
-        supabase.from("profiles").select("id, full_name, phone").order("full_name"),
-        supabase.from("user_roles").select("user_id, role"),
+      const [profiles, roleRows] = await Promise.all([
+        fetchAll((from, to) =>
+          supabase
+            .from("profiles")
+            .select("id, full_name, phone")
+            .order("full_name")
+            .order("id")
+            .range(from, to),
+        ),
+        fetchAll((from, to) =>
+          supabase.from("user_roles").select("user_id, role").order("id").range(from, to),
+        ),
       ]);
-      if (profilesRes.error) throw profilesRes.error;
-      if (rolesRes.error) throw rolesRes.error;
-      const roles = new Map((rolesRes.data ?? []).map((r) => [r.user_id, r.role]));
-      return (profilesRes.data ?? []).map((p) => ({
+      const roles = new Map(roleRows.map((r) => [r.user_id, r.role]));
+      return profiles.map((p) => ({
         ...p,
         role: roles.get(p.id) ?? "viewer",
       }));
