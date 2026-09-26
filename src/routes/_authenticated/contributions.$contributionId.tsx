@@ -12,6 +12,8 @@ import { naira, shortDate, todayIso } from "@/lib/format";
 import { methodShort, type PayMethod } from "@/lib/methods";
 import { EmptyState, PageHeader, StatCard } from "@/components/page-parts";
 import { MethodSelect } from "@/components/method-select";
+import { RemindButton } from "@/components/remind-button";
+import { ContributionPeopleDialog } from "@/components/contribution-people-dialog";
 import { ConfirmButton, ConfirmDialog } from "@/components/confirm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,7 +53,7 @@ type Filter = "all" | "paid" | "part" | "unpaid";
 
 function ContributionDetail() {
   const { contributionId } = Route.useParams();
-  const { orgId, isAdmin } = useAuth();
+  const { orgId, isAdmin, org } = useAuth();
   const qc = useQueryClient();
   const [paying, setPaying] = useState<Person | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
@@ -395,6 +397,18 @@ function ContributionDetail() {
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-xl font-semibold">Payment register</h2>
+          {isAdmin && !c.closed && (
+            <ContributionPeopleDialog
+              contributionId={contributionId}
+              orgId={orgId!}
+              picked={all.map((p) => p.id)}
+              paidIds={new Set(pays.map((p) => p.member_id))}
+              onDone={() => {
+                refresh();
+                qc.invalidateQueries({ queryKey: ["contribution-members", contributionId] });
+              }}
+            />
+          )}
           <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
             <TabsList>
               <TabsTrigger value="all">All</TabsTrigger>
@@ -441,6 +455,15 @@ function ContributionDetail() {
                         className={`px-4 py-3 text-right ${r.balance > 0 ? "text-destructive" : ""}`}
                       >
                         {naira(r.balance)}
+                        {r.balance > 0 && (
+                          <RemindButton
+                            phone={r.person.phone}
+                            memberName={r.person.name}
+                            orgName={org?.name ?? "your association"}
+                            what={c.name}
+                            amount={r.balance}
+                          />
+                        )}
                       </td>
                     )}
                     <td className="px-4 py-3 text-muted-foreground">

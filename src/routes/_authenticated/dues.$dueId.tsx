@@ -10,6 +10,7 @@ import { friendlyError } from "@/lib/errors";
 import { initials, naira, shortDate, todayIso } from "@/lib/format";
 import { type PayMethod } from "@/lib/methods";
 import { MethodSelect } from "@/components/method-select";
+import { RemindButton } from "@/components/remind-button";
 import { frequencyLabels, type Frequency } from "@/lib/periods";
 import { EmptyState, PageHeader, StatCard } from "@/components/page-parts";
 import { Badge } from "@/components/ui/badge";
@@ -52,7 +53,7 @@ const PERIOD_PICKER_LIMIT = 60;
 
 function DueDetail() {
   const { dueId } = Route.useParams();
-  const { orgId, isAdmin } = useAuth();
+  const { orgId, isAdmin, org } = useAuth();
   const queryClient = useQueryClient();
   const [periodStart, setPeriodStart] = useState<string | null>(null);
   const [paying, setPaying] = useState<Member | null>(null);
@@ -338,15 +339,22 @@ function DueDetail() {
             <MemberList
               members={notPaid}
               tone={overdue ? "bad" : "muted"}
-              action={
-                isAdmin
-                  ? (m) => (
-                      <Button size="sm" onClick={() => setPaying(m)}>
-                        Mark paid
-                      </Button>
-                    )
-                  : undefined
-              }
+              action={(m) => (
+                <>
+                  <RemindButton
+                    phone={m.phone}
+                    memberName={m.name}
+                    orgName={org?.name ?? "your association"}
+                    what={`${due.data!.name} (${periodLabel})`}
+                    amount={expected}
+                  />
+                  {isAdmin && (
+                    <Button size="sm" onClick={() => setPaying(m)}>
+                      Mark paid
+                    </Button>
+                  )}
+                </>
+              )}
               note={() => (overdue ? "Overdue" : "Not paid")}
             />
           </TabsContent>
@@ -365,15 +373,22 @@ function DueDetail() {
               members={partial}
               tone="muted"
               note={(m) => `${naira(paidByMember.get(m.id) ?? 0)} of ${naira(expected)}`}
-              action={
-                isAdmin
-                  ? (m) => (
-                      <Button size="sm" variant="outline" onClick={() => setPaying(m)}>
-                        Add payment
-                      </Button>
-                    )
-                  : undefined
-              }
+              action={(m) => (
+                <>
+                  <RemindButton
+                    phone={m.phone}
+                    memberName={m.name}
+                    orgName={org?.name ?? "your association"}
+                    what={`${due.data!.name} (${periodLabel})`}
+                    amount={Math.max(expected - (paidByMember.get(m.id) ?? 0), 0)}
+                  />
+                  {isAdmin && (
+                    <Button size="sm" variant="outline" onClick={() => setPaying(m)}>
+                      Add payment
+                    </Button>
+                  )}
+                </>
+              )}
             />
           </TabsContent>
         </Tabs>

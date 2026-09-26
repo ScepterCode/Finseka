@@ -186,3 +186,30 @@
 @utility bg-wine-gradient {
   background-image: var(--gradient-wine);
 }
+
+/* Printing (e.g. the Reports page for a meeting): only the content, on white paper. */
+@media print {
+  .print-hide,
+  .group.peer[data-side] /* the sidebar */ {
+    display: none !important;
+  }
+  /* Reports render every tab so all of them print, under their own headings. */
+  [role="tablist"] {
+    display: none !important;
+  }
+  [role="tabpanel"][hidden],
+  [role="tabpanel"][data-state="inactive"] {
+    display: block !important;
+  }
+  body {
+    background: #fff !important;
+  }
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+  .shadow-soft,
+  .shadow-lift {
+    box-shadow: none !important;
+  }
+}

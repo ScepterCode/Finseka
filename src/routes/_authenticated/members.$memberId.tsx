@@ -18,6 +18,7 @@ import { fetchMemberStanding } from "@/lib/totals";
 import { PageHeader, StatCard, EmptyState } from "@/components/page-parts";
 import { TagPicker } from "@/routes/_authenticated/members.index";
 import { ReasonDialog } from "@/components/reason-dialog";
+import { RemindButton } from "@/components/remind-button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,7 +54,7 @@ export const Route = createFileRoute("/_authenticated/members/$memberId")({
 
 function MemberProfile() {
   const { memberId } = Route.useParams();
-  const { isAdmin, orgId } = useAuth();
+  const { isAdmin, orgId, org } = useAuth();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
 
@@ -360,6 +361,19 @@ function MemberProfile() {
             >
               {totalOwing > 0 ? `Owing ${naira(totalOwing)}` : "Good standing"}
             </Badge>
+            <RemindButton
+              phone={member.data.phone}
+              memberName={member.data.name}
+              orgName={org?.name ?? "your association"}
+              what={
+                contribOwing > 0 && duesOwing > 0
+                  ? "your dues and contributions"
+                  : contribOwing > 0
+                    ? "your contributions"
+                    : "your dues"
+              }
+              amount={totalOwing}
+            />
             {isAdmin && (
               <Button
                 variant="outline"

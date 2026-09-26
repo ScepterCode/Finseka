@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDownLeft, ArrowUpRight, Loader2, Plus, Undo2 } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Download, Loader2, Plus, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { friendlyError } from "@/lib/errors";
@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { localIso, naira, shortDate, todayIso } from "@/lib/format";
 import { fetchLedgerTotals } from "@/lib/totals";
+import { downloadCsv, fileSlug, toCsv } from "@/lib/csv";
 import { methodShort, type PayMethod } from "@/lib/methods";
 import { MethodSelect } from "@/components/method-select";
 import { ReasonDialog } from "@/components/reason-dialog";
@@ -63,13 +64,25 @@ const ranges = [
 /** Ledger rows are loaded this many at a time; totals come from the database. */
 const PAGE_SIZE = 100;
 
+type ExportRow = {
+  entry_date: string;
+  kind: "income" | "expense";
+  label: string;
+  description: string | null;
+  amount: number;
+  method: string;
+  reverses_id: string | null;
+  reversed_at: string | null;
+  members: { name: string } | null;
+};
+
 function daysAgoIso(days: number) {
   const now = new Date();
   return localIso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - days));
 }
 
 function LedgerPage() {
-  const { orgId, isAdmin } = useAuth();
+  const { orgId, isAdmin, org } = useAuth();
   const queryClient = useQueryClient();
   const [range, setRange] = useState<string>("7");
   const [from, setFrom] = useState(daysAgoIso(7));
@@ -167,6 +180,50 @@ function LedgerPage() {
   });
 
   const rows = entries.data?.pages.flat() ?? [];
+
+  // Downloads every entry in the chosen dates, not just the ones loaded on screen.
+  const exportCsv = useMutation({
+    mutationFn: async () => {
+      const all: ExportRow[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase
+          .from("ledger_entries")
+          .select(
+            "entry_date, kind, label, description, amount, method, reverses_id, reversed_at, members(name)",
+          )
+          .gte("entry_date", fromDate)
+          .lte("entry_date", toDate)
+          .order("entry_date", { ascending: true })
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, from + 999);
+        if (error) throw error;
+        all.push(...(data as ExportRow[]));
+        if (data.length < 1000) break;
+      }
+      const csv = toCsv(all, [
+        { header: "Date", value: (r) => r.entry_date },
+        { header: "Money in or out", value: (r) => (r.kind === "income" ? "In" : "Out") },
+        { header: "What", value: (r) => r.label },
+        { header: "Details", value: (r) => r.description },
+        { header: "Cash or bank", value: (r) => (r.method === "transfer" ? "Bank" : "Cash") },
+        { header: "Member", value: (r) => r.members?.name ?? "" },
+        // Effect on the purse: money in is positive, money out and reversals negative.
+        {
+          header: "Amount (₦)",
+          value: (r) => (r.kind === "income" ? 1 : -1) * Number(r.amount),
+        },
+        {
+          header: "Note",
+          value: (r) => (r.reverses_id ? "Reversal" : r.reversed_at ? "Reversed" : ""),
+        },
+      ]);
+      downloadCsv(`${fileSlug(org?.name ?? "finseka")}-ledger-${fromDate}-to-${toDate}.csv`, csv);
+      return all.length;
+    },
+    onSuccess: (n) => toast.success(`Downloaded ${n} ledger ${n === 1 ? "entry" : "entries"}`),
+    onError: (e: Error) => toast.error(friendlyError(e)),
+  });
   const rangeIncome = rangeTotals.data?.income ?? 0;
   const rangeExpense = rangeTotals.data?.expense ?? 0;
 
@@ -176,17 +233,33 @@ function LedgerPage() {
         title="Ledger"
         subtitle="Everything that entered and left the purse — dues and contributions land here automatically."
         action={
-          isAdmin ? (
-            <AddEntryDialog
-              members={members.data ?? []}
-              onDone={() => {
-                queryClient.invalidateQueries({ queryKey: ["ledger"] });
-                queryClient.invalidateQueries({ queryKey: ["ledger-balance"] });
-                queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-                queryClient.invalidateQueries({ queryKey: ["reports"] });
-              }}
-            />
-          ) : null
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="lg"
+              className="gap-2"
+              disabled={exportCsv.isPending}
+              onClick={() => exportCsv.mutate()}
+            >
+              {exportCsv.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Download className="size-4" />
+              )}
+              Download CSV
+            </Button>
+            {isAdmin && (
+              <AddEntryDialog
+                members={members.data ?? []}
+                onDone={() => {
+                  queryClient.invalidateQueries({ queryKey: ["ledger"] });
+                  queryClient.invalidateQueries({ queryKey: ["ledger-balance"] });
+                  queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+                  queryClient.invalidateQueries({ queryKey: ["reports"] });
+                }}
+              />
+            )}
+          </div>
         }
       />
 

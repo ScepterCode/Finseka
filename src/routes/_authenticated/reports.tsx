@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { Download, Loader2, Printer } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
 import { localIso, naira } from "@/lib/format";
 import { fetchReportSummary } from "@/lib/totals";
+import { downloadCsv, fileSlug, toCsv } from "@/lib/csv";
+import { Button } from "@/components/ui/button";
 import { EmptyState, PageHeader, StatCard } from "@/components/page-parts";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -51,7 +53,7 @@ const monthNames = [
 ];
 
 function ReportsPage() {
-  const { orgId } = useAuth();
+  const { orgId, org } = useAuth();
   const thisYear = new Date().getFullYear();
   const [year, setYear] = useState(String(thisYear));
   const [month, setMonth] = useState("all");
@@ -92,13 +94,54 @@ function ReportsPage() {
 
   const periodLabel = month === "all" ? `Year ${year}` : `${monthNames[Number(month)]} ${year}`;
 
+  // One CSV with all three reports, one after the other.
+  function exportCsv() {
+    const d = report.data;
+    if (!d) return;
+    const statement = toCsv(d.byLabel, [
+      { header: "What", value: ([label]) => label },
+      { header: "Money in (₦)", value: ([, row]) => row.income },
+      { header: "Money out (₦)", value: ([, row]) => row.expense },
+    ]);
+    const owing = toCsv(d.defaulters, [
+      { header: "Member", value: (m) => m.name },
+      { header: "Owing now (₦)", value: (m) => m.owing },
+    ]);
+    const contributions = toCsv(d.reconciliation, [
+      { header: "Contribution", value: (c) => c.name },
+      { header: "Closed", value: (c) => (c.closed ? "Yes" : "No") },
+      { header: "People paid", value: (c) => `${c.paidPeople} of ${c.people}` },
+      { header: "Collected (₦)", value: (c) => c.collected },
+      { header: "Target (₦)", value: (c) => c.target },
+    ]);
+    const title = `${org?.name ?? "FinSeka"} — report for ${periodLabel}`;
+    downloadCsv(
+      `${fileSlug(org?.name ?? "finseka")}-report-${fileSlug(periodLabel)}.csv`,
+      [
+        `${title}\r\n`,
+        `Money in and out (${periodLabel})\r\n`,
+        statement,
+        `\r\nWho is owing now\r\n`,
+        owing,
+        `\r\nContributions\r\n`,
+        contributions,
+      ].join(""),
+    );
+  }
+
   return (
     <div className="space-y-8">
+      <div className="hidden print:block">
+        <p className="font-display text-2xl font-semibold">{org?.name ?? "FinSeka"}</p>
+        <p className="text-sm">
+          Report for {periodLabel} · printed {new Date().toLocaleDateString("en-NG")}
+        </p>
+      </div>
       <PageHeader
         title="Reports"
         subtitle="Numbers you can read out at a meeting — no accounting words."
         action={
-          <div className="flex gap-3">
+          <div className="print-hide flex flex-wrap items-end gap-3">
             <div className="w-32">
               <Label className="mb-1.5 block text-xs">Year</Label>
               <Select value={year} onValueChange={setYear}>
@@ -169,8 +212,23 @@ function ReportsPage() {
               </TabsTrigger>
               <TabsTrigger value="contributions">Contributions</TabsTrigger>
             </TabsList>
+            <div className="print-hide mt-3 flex flex-wrap gap-2">
+              <Button variant="outline" className="gap-2" onClick={() => window.print()}>
+                <Printer className="size-4" /> Print
+              </Button>
+              <Button variant="outline" className="gap-2" onClick={exportCsv}>
+                <Download className="size-4" /> Download CSV
+              </Button>
+            </div>
 
-            <TabsContent value="statement" className="mt-5 space-y-6">
+            <TabsContent
+              value="statement"
+              forceMount
+              className="mt-5 space-y-6 data-[state=inactive]:hidden print:mt-8"
+            >
+              <h2 className="mb-3 hidden font-display text-lg font-semibold print:block">
+                Money in and out
+              </h2>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-3xl border border-border bg-card p-6 shadow-soft">
                   <h3 className="font-display text-base font-semibold">Money in</h3>
@@ -234,7 +292,14 @@ function ReportsPage() {
               )}
             </TabsContent>
 
-            <TabsContent value="defaulters" className="mt-5">
+            <TabsContent
+              value="defaulters"
+              forceMount
+              className="mt-5 data-[state=inactive]:hidden print:mt-8"
+            >
+              <h2 className="mb-3 hidden font-display text-lg font-semibold print:block">
+                Who is owing
+              </h2>
               {report.data.defaulters.length === 0 ? (
                 <EmptyState title="Nobody is owing" hint="Everybody is up to date. Well done." />
               ) : (
@@ -261,7 +326,14 @@ function ReportsPage() {
               )}
             </TabsContent>
 
-            <TabsContent value="contributions" className="mt-5">
+            <TabsContent
+              value="contributions"
+              forceMount
+              className="mt-5 data-[state=inactive]:hidden print:mt-8"
+            >
+              <h2 className="mb-3 hidden font-display text-lg font-semibold print:block">
+                Contributions
+              </h2>
               {report.data.reconciliation.length === 0 ? (
                 <EmptyState title="No contributions yet" hint="Create one and it will show here." />
               ) : (

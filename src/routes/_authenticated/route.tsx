@@ -70,7 +70,7 @@ function AuthenticatedLayout() {
       <div className="flex min-h-screen w-full bg-background">
         <AppSidebar orgName={org?.name ?? "Your organization"} />
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/90 px-3 backdrop-blur-md">
+          <header className="print-hide sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/90 px-3 backdrop-blur-md">
             <SidebarTrigger />
             <span className="truncate font-display text-base font-semibold">
               {org?.name ?? "FinSeka"}
