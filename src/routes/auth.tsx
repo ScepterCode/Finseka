@@ -4,7 +4,6 @@ import { Loader2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,18 +77,29 @@ function AuthPage() {
     navigate({ to: "/dashboard" });
   }
 
+  // Supabase sends the person to Google and back to /auth, where the effect above
+  // picks up the new session. If Google is not enabled in Supabase, the redirect would
+  // land on a raw error page, so check first.
   async function google() {
     setBusy(true);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin + "/auth",
-    });
-    if (result.error) {
+    const settings = await fetch(`${import.meta.env["VITE_SUPABASE_URL"]}/auth/v1/settings`, {
+      headers: { apikey: String(import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"]) },
+    })
+      .then((r) => r.json() as Promise<{ external?: Record<string, boolean> }>)
+      .catch(() => null);
+    if (settings && !settings.external?.["google"]) {
       setBusy(false);
-      toast.error("Google sign-in did not work. Please try again.");
+      toast.error("Google sign-in is not switched on yet. Use email and password for now.");
       return;
     }
-    if (result.redirected) return;
-    navigate({ to: "/dashboard", replace: true });
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin + "/auth" },
+    });
+    if (error) {
+      setBusy(false);
+      toast.error("Google sign-in did not work. Please try again.");
+    }
   }
 
   return (

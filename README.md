@@ -144,17 +144,11 @@ First build a landing page that leads into the product, use realastic Nigerian s
 
 Agitate the pain and offer the relief that is finseka, no more reconciliation of accounts, pure trnaoerency and accountability
 
-This project was built with [Lovable](https://lovable.dev).
+## Stack
 
-**Live app**: https://finseka.lovable.app
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/9ae67be7-f76c-4a10-a922-b628fbde4633).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+- TanStack Start (React 19) + Vite, Tailwind and shadcn/ui
+- Supabase: Postgres with row-level security, Auth (email and Google), Storage
+- Hosted on Vercel
 
 ## Development
 
@@ -164,5 +158,11 @@ Prefer working locally? You need Node.js and npm — [install with nvm](https://
 git clone <this-repository-url>
 cd <repository-name>
 npm i
+cp .env.example .env   # then fill in your Supabase values
 npm run dev
 ```
+
+## Database
+
+Schema changes live in `supabase/migrations` and are applied in filename order.
+Money records are add-only: payments are cancelled and ledger lines reversed, never edited or deleted.

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute, Outlet, useNavigate, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Navigate, Outlet, useNavigate, useRouter } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, LogOut } from "lucide-react";
@@ -38,10 +38,8 @@ function AuthenticatedLayout() {
 
   if (loadingSession) return <FullScreenLoader />;
 
-  if (!session) {
-    void navigate({ to: "/auth", replace: true });
-    return <FullScreenLoader />;
-  }
+  // Redirect with <Navigate> rather than calling navigate() while rendering.
+  if (!session) return <Navigate to="/auth" replace />;
 
   if (loadingProfile) return <FullScreenLoader />;
 
