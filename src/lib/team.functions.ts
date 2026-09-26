@@ -4,6 +4,14 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 type InviteInput = { fullName: string; email: string; role: "admin" | "viewer" };
 
+export type InviteResult = {
+  email: string;
+  /** Temporary password for a new login; null when an existing login was attached. */
+  password: string | null;
+  attached: boolean;
+  note: string;
+};
+
 function tempPassword() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
   let out = "";
@@ -13,20 +21,19 @@ function tempPassword() {
   return `Fin-${out}`;
 }
 
-async function requireAdminOrg(
-  supabase: {
-    from: (t: string) => {
-      select: (c: string) => {
-        eq: (
-          k: string,
-          v: string,
-        ) => { maybeSingle: () => Promise<{ data: { org_id: string | null } | null }> };
-      };
+type UserClient = {
+  from: (t: string) => {
+    select: (c: string) => {
+      eq: (
+        k: string,
+        v: string,
+      ) => { maybeSingle: () => Promise<{ data: { org_id: string | null } | null }> };
     };
-    rpc: (n: string) => Promise<{ data: unknown }>;
-  },
-  userId: string,
-) {
+  };
+  rpc: (n: string) => Promise<{ data: unknown; error: { message: string } | null }>;
+};
+
+async function requireAdminOrg(supabase: UserClient, userId: string) {
   const { data: profile } = await supabase
     .from("profiles")
     .select("org_id")
@@ -40,7 +47,7 @@ async function requireAdminOrg(
 
 export const inviteTeamMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: InviteInput) => {
+  .validator((input: InviteInput) => {
     const email = String(input.email ?? "")
       .trim()
       .toLowerCase();
@@ -50,9 +57,33 @@ export const inviteTeamMember = createServerFn({ method: "POST" })
     const role = input.role === "admin" ? "admin" : "viewer";
     return { email, fullName, role } as InviteInput;
   })
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<InviteResult> => {
     const orgId = await requireAdminOrg(context.supabase as never, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Someone who already has a FinSeka login (e.g. removed from another team) is
+    // attached as they are and keeps their own password.
+    const { data: existingId, error: lookupError } = await supabaseAdmin.rpc("user_id_for_email", {
+      _email: data.email,
+    });
+    if (lookupError) throw new Error(lookupError.message);
+
+    if (existingId) {
+      const { error } = await supabaseAdmin.rpc("attach_member", {
+        _user_id: existingId,
+        _org_id: orgId,
+        _role: data.role,
+        _full_name: data.fullName,
+        _must_change_password: false,
+      });
+      if (error) throw new Error(error.message);
+      return {
+        email: data.email,
+        password: null,
+        attached: true,
+        note: "They already had a FinSeka login, so they can sign in with their own password.",
+      };
+    }
 
     const password = tempPassword();
     const created = await supabaseAdmin.auth.admin.createUser({
@@ -66,58 +97,33 @@ export const inviteTeamMember = createServerFn({ method: "POST" })
     }
     const newUserId = created.data.user.id;
 
-    const { error: profileError } = await supabaseAdmin.from("profiles").upsert(
-      {
-        id: newUserId,
-        org_id: orgId,
-        full_name: data.fullName,
-        must_change_password: true,
-      },
-      { onConflict: "id" },
-    );
-    if (profileError) throw new Error(profileError.message);
+    // Profile and role are saved in one transaction; if that fails, remove the new
+    // login again so no stray account is left behind.
+    const { error: attachError } = await supabaseAdmin.rpc("attach_member", {
+      _user_id: newUserId,
+      _org_id: orgId,
+      _role: data.role,
+      _full_name: data.fullName,
+      _must_change_password: true,
+    });
+    if (attachError) {
+      await supabaseAdmin.auth.admin.deleteUser(newUserId);
+      throw new Error(attachError.message);
+    }
 
-    const { error: roleError } = await supabaseAdmin
-      .from("user_roles")
-      .upsert(
-        { user_id: newUserId, org_id: orgId, role: data.role },
-        { onConflict: "user_id,org_id" },
-      );
-    if (roleError) throw new Error(roleError.message);
-
-    const emailed = false;
-    const emailNote =
-      "Email sending is not switched on for this app yet, so share this temporary password with them yourself.";
-
-    return { email: data.email, password, emailed, emailNote };
-  });
-
-export const revokeTeamMember = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: { userId: string }) => ({ userId: String(input.userId) }))
-  .handler(async ({ data, context }) => {
-    const orgId = await requireAdminOrg(context.supabase as never, context.userId);
-    if (data.userId === context.userId) throw new Error("You cannot remove your own access here.");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    const { data: target } = await supabaseAdmin
-      .from("profiles")
-      .select("org_id")
-      .eq("id", data.userId)
-      .maybeSingle();
-    if (!target || target.org_id !== orgId)
-      throw new Error("That person is not in your organization.");
-
-    const { error } = await supabaseAdmin.auth.admin.deleteUser(data.userId);
-    if (error) throw new Error(error.message);
-    return { ok: true };
+    return {
+      email: data.email,
+      password,
+      attached: false,
+      note: "Email sending is not switched on for this app yet, so share this temporary password with them yourself.",
+    };
   });
 
 // The must_change_password flag is not writable by users, so it can only be cleared
 // here, after the new password has actually been set.
 export const completePasswordChange = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { password: string }) => {
+  .validator((input: { password: string }) => {
     const password = String(input.password ?? "");
     if (password.length < 6) throw new Error("Use at least 6 characters.");
     return { password };
@@ -140,6 +146,13 @@ export const completePasswordChange = createServerFn({ method: "POST" })
 export const deleteMyAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    // Checked as the signed-in user: the only admin cannot leave others without one.
+    const { data: blocker, error: checkError } = await (
+      context.supabase as unknown as UserClient
+    ).rpc("account_deletion_blocker");
+    if (checkError) throw new Error(checkError.message);
+    if (typeof blocker === "string" && blocker) throw new Error(blocker);
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.auth.admin.deleteUser(context.userId);
     if (error) throw new Error(error.message);

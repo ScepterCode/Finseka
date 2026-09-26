@@ -58,7 +58,7 @@ CREATE TABLE supabase_migrations.schema_migrations (version text PRIMARY KEY, st
 -- Test helpers. Each test file runs inside a transaction that is rolled back.
 -- ---------------------------------------------------------------------------
 CREATE SCHEMA tests;
-GRANT USAGE ON SCHEMA tests TO anon, authenticated;
+GRANT USAGE ON SCHEMA tests TO anon, authenticated, service_role;
 
 -- Act as a signed-in user for the rest of the transaction (null = signed out).
 CREATE FUNCTION tests.as_user(_user_id uuid) RETURNS void LANGUAGE sql AS $$
@@ -108,4 +108,4 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA tests TO anon, authenticated;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA tests TO anon, authenticated, service_role;

@@ -5,13 +5,12 @@ import { useServerFn } from "@tanstack/react-start";
 import { Loader2, Plus, ShieldCheck, Trash2, Upload, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
-import { friendlyError } from "@/lib/errors";
-
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLogoUrl } from "@/hooks/useLogoUrl";
+import { friendlyError } from "@/lib/errors";
 import { initials } from "@/lib/format";
-import { inviteTeamMember, revokeTeamMember, deleteMyAccount } from "@/lib/team.functions";
+import { inviteTeamMember, deleteMyAccount, type InviteResult } from "@/lib/team.functions";
 import { EmptyState, PageHeader } from "@/components/page-parts";
 import { ConfirmButton } from "@/components/confirm";
 import { Badge } from "@/components/ui/badge";
@@ -58,7 +57,6 @@ function SettingsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const logoPreview = useLogoUrl(org?.logo_url);
 
-  const revoke = useServerFn(revokeTeamMember);
   const removeMe = useServerFn(deleteMyAccount);
 
   useEffect(() => {
@@ -124,11 +122,28 @@ function SettingsPage() {
     onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
+  // Removing someone takes them out of this organization; their login stays.
   const revokeMember = useMutation({
-    mutationFn: async (id: string) => revoke({ data: { userId: id } }),
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc("remove_team_member", { _user_id: id });
+      if (error) throw error;
+    },
     onSuccess: () => {
-      toast.success("Access removed");
+      toast.success("Removed from your team");
       queryClient.invalidateQueries({ queryKey: ["team"] });
+    },
+    onError: (e: Error) => toast.error(friendlyError(e)),
+  });
+
+  const changeRole = useMutation({
+    mutationFn: async (v: { id: string; role: "admin" | "viewer" }) => {
+      const { error } = await supabase.rpc("set_member_role", { _user_id: v.id, _role: v.role });
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => {
+      toast.success(v.role === "admin" ? "They are now an admin" : "They can now only view");
+      queryClient.invalidateQueries({ queryKey: ["team"] });
+      if (v.id === userId) refreshMe();
     },
     onError: (e: Error) => toast.error(friendlyError(e)),
   });
@@ -286,17 +301,38 @@ function SettingsPage() {
                     {p.phone || "No phone"}
                   </span>
                 </span>
-                <Badge variant={p.role === "admin" ? "default" : "secondary"} className="gap-1">
-                  {p.role === "admin" && <ShieldCheck className="size-3" />}
-                  {p.role === "admin" ? "Admin" : "Viewer"}
-                </Badge>
+                {isAdmin ? (
+                  <Select
+                    value={p.role}
+                    disabled={changeRole.isPending}
+                    onValueChange={(v) =>
+                      changeRole.mutate({ id: p.id, role: v as "admin" | "viewer" })
+                    }
+                  >
+                    <SelectTrigger
+                      className="w-28"
+                      aria-label={`Role for ${p.full_name || "this person"}`}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="viewer">Viewer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Badge variant={p.role === "admin" ? "default" : "secondary"} className="gap-1">
+                    {p.role === "admin" && <ShieldCheck className="size-3" />}
+                    {p.role === "admin" ? "Admin" : "Viewer"}
+                  </Badge>
+                )}
                 {isAdmin && p.id !== userId && (
                   <ConfirmButton
                     variant="ghost"
                     size="icon"
                     destructive
-                    title={`Remove ${p.full_name || "this person"}?`}
-                    description="They will lose access to your records straight away. This cannot be undone."
+                    title={`Remove ${p.full_name || "this person"} from your team?`}
+                    description="They lose access to your records straight away. Their login is kept, so you can invite them back later."
                     confirmLabel="Yes, remove them"
                     onConfirm={() => revokeMember.mutate(p.id)}
                   >
@@ -314,7 +350,7 @@ function SettingsPage() {
         <h2 className="font-display text-lg font-semibold text-destructive">Delete my account</h2>
         <p className="mt-1 max-w-prose text-sm text-muted-foreground">
           This removes your own login from FinSeka. Your organization records stay, but you will not
-          be able to sign in again.
+          be able to sign in again. If you are the only admin, make someone else an admin first.
         </p>
         <ConfirmButton
           variant="outline"
@@ -338,14 +374,12 @@ function ShareAccess({ onDone }: { onDone: () => void }) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"admin" | "viewer">("viewer");
-  const [result, setResult] = useState<{ email: string; password: string; note: string } | null>(
-    null,
-  );
+  const [result, setResult] = useState<InviteResult | null>(null);
 
   const save = useMutation({
     mutationFn: async () => invite({ data: { fullName, email, role } }),
     onSuccess: (res) => {
-      setResult({ email: res.email, password: res.password, note: res.emailNote });
+      setResult(res);
       setFullName("");
       setEmail("");
       onDone();
@@ -379,21 +413,23 @@ function ShareAccess({ onDone }: { onDone: () => void }) {
           <div className="space-y-4">
             <div className="rounded-2xl border border-border bg-secondary p-4 text-sm">
               <p className="font-medium">{result.email}</p>
-              <p className="mt-1 font-mono text-base">{result.password}</p>
+              {result.password && <p className="mt-1 font-mono text-base">{result.password}</p>}
             </div>
             <p className="text-sm text-muted-foreground">{result.note}</p>
-            <Button
-              className="w-full"
-              size="lg"
-              onClick={() => {
-                void navigator.clipboard?.writeText(
-                  `FinSeka login\nEmail: ${result.email}\nTemporary password: ${result.password}`,
-                );
-                toast.success("Copied");
-              }}
-            >
-              Copy login details
-            </Button>
+            {result.password && (
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(
+                    `FinSeka login\nEmail: ${result.email}\nTemporary password: ${result.password}`,
+                  );
+                  toast.success("Copied");
+                }}
+              >
+                Copy login details
+              </Button>
+            )}
           </div>
         ) : (
           <form

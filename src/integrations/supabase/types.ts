@@ -632,6 +632,17 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      account_deletion_blocker: { Args: never; Returns: string | null };
+      attach_member: {
+        Args: {
+          _full_name: string;
+          _must_change_password: boolean;
+          _org_id: string;
+          _role: Database["public"]["Enums"]["app_role"];
+          _user_id: string;
+        };
+        Returns: undefined;
+      };
       contribution_progress: { Args: { _open_only?: boolean }; Returns: Json };
       current_org_id: { Args: never; Returns: string };
       dashboard_summary: { Args: { _periods: Json }; Returns: Json };
@@ -679,14 +690,20 @@ export type Database = {
         Args: { _contribution_id: string };
         Returns: undefined;
       };
+      remove_team_member: { Args: { _user_id: string }; Returns: undefined };
       reverse_ledger_entry: {
         Args: { _entry_id: string; _reason: string };
+        Returns: undefined;
+      };
+      set_member_role: {
+        Args: { _role: Database["public"]["Enums"]["app_role"]; _user_id: string };
         Returns: undefined;
       };
       setup_organization: {
         Args: { _full_name: string; _org_name: string; _phone?: string };
         Returns: string;
       };
+      user_id_for_email: { Args: { _email: string }; Returns: string | null };
       void_payment: {
         Args: { _kind: string; _payment_id: string; _reason: string };
         Returns: undefined;
