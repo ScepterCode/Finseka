@@ -48,7 +48,7 @@ function isH3SwallowedErrorBody(body: string): boolean {
 // Only in production builds: the dev server needs its own scripts and hot-reload socket.
 function secure(response: Response) {
   return import.meta.env.PROD
-    ? withSecurityHeaders(response, process.env["SUPABASE_URL"])
+    ? withSecurityHeaders(response, process.env["SUPABASE_URL"], process.env["VITE_SENTRY_DSN"])
     : response;
 }
 

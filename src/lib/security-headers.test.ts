@@ -36,3 +36,15 @@ describe("withSecurityHeaders", () => {
     expect(r.headers.get("x-content-type-options")).toBe("nosniff");
   });
 });
+
+describe("Sentry in the policy", () => {
+  it("allows Sentry's ingest host only when a DSN is set", () => {
+    const off = securityHeaders("https://abcd.supabase.co")["Content-Security-Policy"];
+    const on = securityHeaders(
+      "https://abcd.supabase.co",
+      "https://key@o123.ingest.de.sentry.io/456",
+    )["Content-Security-Policy"];
+    expect(off).not.toContain("sentry");
+    expect(on).toContain("https://o123.ingest.de.sentry.io");
+  });
+});

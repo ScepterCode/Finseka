@@ -7,7 +7,10 @@
 //   * data: this site and our Supabase project (REST, auth, storage, realtime)
 //   * no one may show FinSeka inside a frame (stops click-jacking)
 
-export function securityHeaders(supabaseUrl: string | undefined): Record<string, string> {
+export function securityHeaders(
+  supabaseUrl: string | undefined,
+  sentryDsn?: string,
+): Record<string, string> {
   let supabase = "https://*.supabase.co";
   let supabaseWs = "wss://*.supabase.co";
   try {
@@ -20,13 +23,21 @@ export function securityHeaders(supabaseUrl: string | undefined): Record<string,
     // keep the wildcard
   }
 
+  // Error reports go to Sentry's ingest host, when monitoring is switched on.
+  let sentry = "";
+  try {
+    if (sentryDsn) sentry = ` ${new URL(sentryDsn).origin}`;
+  } catch {
+    // no Sentry
+  }
+
   const csp = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
     `img-src 'self' data: blob: ${supabase}`,
-    `connect-src 'self' ${supabase} ${supabaseWs}`,
+    `connect-src 'self' ${supabase} ${supabaseWs}${sentry}`,
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -44,9 +55,13 @@ export function securityHeaders(supabaseUrl: string | undefined): Record<string,
 }
 
 /** Returns the response with the security headers set (headers already present win). */
-export function withSecurityHeaders(response: Response, supabaseUrl: string | undefined) {
+export function withSecurityHeaders(
+  response: Response,
+  supabaseUrl: string | undefined,
+  sentryDsn?: string,
+) {
   const headers = new Headers(response.headers);
-  for (const [name, value] of Object.entries(securityHeaders(supabaseUrl))) {
+  for (const [name, value] of Object.entries(securityHeaders(supabaseUrl, sentryDsn))) {
     if (!headers.has(name)) headers.set(name, value);
   }
   return new Response(response.body, {
