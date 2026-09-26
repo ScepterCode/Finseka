@@ -61,15 +61,13 @@ export function ContributionPeopleDialog({
   const save = useMutation({
     mutationFn: async () => {
       if (toAdd.length) {
-        const { error } = await supabase
-          .from("contribution_members")
-          .insert(
-            toAdd.map((member_id) => ({
-              org_id: orgId,
-              contribution_id: contributionId,
-              member_id,
-            })),
-          );
+        const { error } = await supabase.from("contribution_members").insert(
+          toAdd.map((member_id) => ({
+            org_id: orgId,
+            contribution_id: contributionId,
+            member_id,
+          })),
+        );
         if (error) throw error;
       }
       if (toRemove.length) {
