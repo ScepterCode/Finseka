@@ -4,20 +4,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Check, Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
-import { friendlyError } from "@/lib/errors";
-
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { initials, naira, todayIso } from "@/lib/format";
+import { friendlyError } from "@/lib/errors";
+import { initials, naira, shortDate, todayIso } from "@/lib/format";
 import { type PayMethod } from "@/lib/methods";
 import { MethodSelect } from "@/components/method-select";
-import {
-  currentPeriod,
-  frequencyLabels,
-  isPastPeriod,
-  periodOptions,
-  type Frequency,
-} from "@/lib/periods";
+import { frequencyLabels, type Frequency } from "@/lib/periods";
 import { EmptyState, PageHeader, StatCard } from "@/components/page-parts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,13 +45,16 @@ export const Route = createFileRoute("/_authenticated/dues/$dueId")({
   component: DueDetail,
 });
 
-type Member = { id: string; name: string; phone: string | null };
+type Member = { id: string; name: string; phone: string | null; joined_on: string };
+
+/** How many periods the period picker lists (a daily due can have hundreds). */
+const PERIOD_PICKER_LIMIT = 60;
 
 function DueDetail() {
   const { dueId } = Route.useParams();
   const { orgId, isAdmin } = useAuth();
   const queryClient = useQueryClient();
-  const [period, setPeriod] = useState<string | null>(null);
+  const [periodStart, setPeriodStart] = useState<string | null>(null);
   const [paying, setPaying] = useState<Member | null>(null);
 
   const due = useQuery({
@@ -66,7 +62,9 @@ function DueDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("dues")
-        .select("id, name, amount, frequency, notes, active, penalty_amount")
+        .select(
+          "id, name, amount, frequency, notes, active, penalty_amount, penalty_grace_days, starts_on",
+        )
         .eq("id", dueId)
         .maybeSingle();
       if (error) throw error;
@@ -80,7 +78,7 @@ function DueDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("members")
-        .select("id, name, phone")
+        .select("id, name, phone, joined_on")
         .eq("active", true)
         .order("name");
       if (error) throw error;
@@ -89,17 +87,31 @@ function DueDetail() {
   });
 
   const frequency = (due.data?.frequency ?? "monthly") as Frequency;
-  const activePeriod = period ?? currentPeriod(frequency);
+
+  // Every period of this due since it started, newest first, with the amount for each.
+  const periods = useQuery({
+    queryKey: ["due-periods", dueId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("due_period_list", { _due_id: dueId });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const periodList = periods.data ?? [];
+  const selected =
+    periodList.find((p) => p.period_start === periodStart) ??
+    periodList.find((p) => p.is_current) ??
+    periodList[0];
 
   const payments = useQuery({
-    queryKey: ["due-payments", dueId, activePeriod],
-    enabled: !!due.data,
+    queryKey: ["due-payments", dueId, selected?.period_start],
+    enabled: !!selected,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("due_payments")
         .select("id, member_id, amount, paid_at, note")
         .eq("due_id", dueId)
-        .eq("period_label", activePeriod)
+        .eq("period_start", selected!.period_start)
         .is("voided_at", null);
       if (error) throw error;
       return data;
@@ -121,7 +133,8 @@ function DueDetail() {
           org_id: orgId!,
           due_id: dueId,
           member_id: input.memberId,
-          period_label: activePeriod,
+          period_start: selected!.period_start,
+          period_label: selected!.label,
           amount: input.amount,
           paid_at: input.date,
           note: input.note || null,
@@ -158,7 +171,27 @@ function DueDetail() {
     onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
-  if (due.isLoading || members.isLoading) {
+  // A new amount applies from the chosen period onward; earlier periods keep their price.
+  const changeAmount = useMutation({
+    mutationFn: async (v: { amount: number; from: string }) => {
+      const { error } = await supabase.rpc("change_due_amount", {
+        _due_id: dueId,
+        _amount: v.amount,
+        _from: v.from,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("New amount saved");
+      setEditing(false);
+      for (const key of ["due", "due-periods", "dues", "dashboard", "reports", "member-standing"]) {
+        queryClient.invalidateQueries({ queryKey: [key] });
+      }
+    },
+    onError: (e: Error) => toast.error(friendlyError(e)),
+  });
+
+  if (due.isLoading || members.isLoading || periods.isLoading) {
     return (
       <div className="grid place-items-center py-20">
         <Loader2 className="size-6 animate-spin text-primary" />
@@ -185,15 +218,19 @@ function DueDetail() {
     paidByMember.set(p.member_id, (paidByMember.get(p.member_id) ?? 0) + Number(p.amount));
   }
 
-  const expected = Number(due.data.amount);
-  const all = members.data ?? [];
+  const expected = Number(selected?.expected ?? due.data.amount);
+  // Only people who had joined by the end of this period are expected to pay for it.
+  const all = (members.data ?? []).filter(
+    (m) => !selected?.period_end || m.joined_on <= selected.period_end,
+  );
   const paid = all.filter((m) => (paidByMember.get(m.id) ?? 0) >= expected && expected > 0);
   const partial = all.filter(
     (m) => (paidByMember.get(m.id) ?? 0) > 0 && (paidByMember.get(m.id) ?? 0) < expected,
   );
   const notPaid = all.filter((m) => !paidByMember.get(m.id));
   const collected = [...paidByMember.values()].reduce((s, v) => s + v, 0);
-  const overdue = isPastPeriod(frequency, activePeriod);
+  const overdue = selected?.is_past ?? false;
+  const periodLabel = selected?.label ?? "";
 
   return (
     <div className="space-y-8">
@@ -212,14 +249,17 @@ function DueDetail() {
           <div className="flex w-full items-end gap-2 sm:w-auto">
             <div className="w-full sm:w-56">
               <Label className="mb-1.5 block text-xs">Period</Label>
-              <Select value={activePeriod} onValueChange={setPeriod}>
+              <Select value={selected?.period_start ?? ""} onValueChange={setPeriodStart}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {periodOptions(frequency).map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {p}
+                  {periodList.slice(0, PERIOD_PICKER_LIMIT).map((p) => (
+                    <SelectItem key={p.period_start} value={p.period_start}>
+                      {p.label}
+                      {Number(p.expected) !== Number(due.data?.amount)
+                        ? ` · ${naira(p.expected)}`
+                        : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -239,9 +279,8 @@ function DueDetail() {
           <DialogHeader>
             <DialogTitle>Edit {due.data.name}</DialogTitle>
             <DialogDescription>
-              The amount ({naira(due.data.amount)}) cannot be changed here, because it would rewrite
-              what everyone owed in past periods. To charge a new amount, stop this due and create a
-              new one.
+              Started {shortDate(due.data.starts_on)}. Changing the amount only affects the period
+              you pick and the ones after it; earlier periods keep their price.
             </DialogDescription>
           </DialogHeader>
           <EditDueForm
@@ -249,16 +288,26 @@ function DueDetail() {
               name: due.data.name,
               notes: due.data.notes ?? "",
               penalty: Number(due.data.penalty_amount ?? 0),
+              graceDays: Number(due.data.penalty_grace_days ?? 0),
               active: due.data.active,
             }}
             pending={saveDue.isPending}
             onSave={(patch) => saveDue.mutate(patch)}
           />
+          <ChangeAmountForm
+            current={Number(due.data.amount)}
+            periods={periodList
+              .filter((p) => !p.is_past)
+              .concat(periodList.filter((p) => p.is_past))
+              .slice(0, PERIOD_PICKER_LIMIT)}
+            pending={changeAmount.isPending}
+            onSave={(v) => changeAmount.mutate(v)}
+          />
         </DialogContent>
       </Dialog>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Collected" value={naira(collected)} tone="good" hint={activePeriod} />
+        <StatCard label="Collected" value={naira(collected)} tone="good" hint={periodLabel} />
         <StatCard
           label="Still owing"
           value={naira(
@@ -335,7 +384,7 @@ function DueDetail() {
           <DialogHeader>
             <DialogTitle>Record payment</DialogTitle>
             <DialogDescription>
-              {paying?.name} · {due.data.name} · {activePeriod}
+              {paying?.name} · {due.data.name} · {periodLabel}
             </DialogDescription>
           </DialogHeader>
           {paying && (
@@ -351,20 +400,27 @@ function DueDetail() {
   );
 }
 
-type DuePatch = { name: string; notes: string | null; penalty_amount: number; active: boolean };
+type DuePatch = {
+  name: string;
+  notes: string | null;
+  penalty_amount: number;
+  penalty_grace_days: number;
+  active: boolean;
+};
 
 function EditDueForm({
   initial,
   pending,
   onSave,
 }: {
-  initial: { name: string; notes: string; penalty: number; active: boolean };
+  initial: { name: string; notes: string; penalty: number; graceDays: number; active: boolean };
   pending: boolean;
   onSave: (patch: DuePatch) => void;
 }) {
   const [name, setName] = useState(initial.name);
   const [notes, setNotes] = useState(initial.notes);
   const [penalty, setPenalty] = useState(String(initial.penalty || ""));
+  const [graceDays, setGraceDays] = useState(String(initial.graceDays || ""));
   const [active, setActive] = useState(initial.active ? "yes" : "no");
 
   return (
@@ -376,6 +432,7 @@ function EditDueForm({
           name: name.trim(),
           notes: notes.trim() || null,
           penalty_amount: Number(penalty || 0),
+          penalty_grace_days: Number(graceDays || 0),
           active: active === "yes",
         });
       }}
@@ -399,6 +456,17 @@ function EditDueForm({
         />
       </div>
       <div className="space-y-2">
+        <Label htmlFor="ed-grace">Days after a period ends before the late charge applies</Label>
+        <Input
+          id="ed-grace"
+          type="number"
+          min="0"
+          value={graceDays}
+          onChange={(e) => setGraceDays(e.target.value)}
+          placeholder="0"
+        />
+      </div>
+      <div className="space-y-2">
         <Label>Still collecting this due?</Label>
         <Select value={active} onValueChange={setActive}>
           <SelectTrigger>
@@ -412,6 +480,71 @@ function EditDueForm({
       </div>
       <Button type="submit" size="lg" className="w-full" disabled={pending}>
         {pending && <Loader2 className="size-4 animate-spin" />} Save changes
+      </Button>
+    </form>
+  );
+}
+
+function ChangeAmountForm({
+  current,
+  periods,
+  pending,
+  onSave,
+}: {
+  current: number;
+  periods: { period_start: string; label: string; is_current: boolean }[];
+  pending: boolean;
+  onSave: (v: { amount: number; from: string }) => void;
+}) {
+  const [amount, setAmount] = useState("");
+  const [from, setFrom] = useState(periods.find((p) => p.is_current)?.period_start ?? "");
+
+  return (
+    <form
+      className="space-y-4 border-t border-border pt-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (from) onSave({ amount: Number(amount), from });
+      }}
+    >
+      <p className="text-sm font-medium">Change the amount (now {naira(current)})</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="ca-amount">New amount (₦)</Label>
+          <Input
+            id="ca-amount"
+            type="number"
+            min="1"
+            required
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Starting from</Label>
+          <Select value={from} onValueChange={setFrom}>
+            <SelectTrigger>
+              <SelectValue placeholder="Pick a period" />
+            </SelectTrigger>
+            <SelectContent>
+              {periods.map((p) => (
+                <SelectItem key={p.period_start} value={p.period_start}>
+                  {p.label}
+                  {p.is_current ? " (now)" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <Button
+        type="submit"
+        variant="outline"
+        size="lg"
+        className="w-full"
+        disabled={pending || !from}
+      >
+        {pending && <Loader2 className="size-4 animate-spin" />} Save new amount
       </Button>
     </form>
   );

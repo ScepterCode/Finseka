@@ -10,7 +10,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { naira, shortDate, initials } from "@/lib/format";
 import { methodShort } from "@/lib/methods";
-import { currentPeriod, periodOptions, type Frequency } from "@/lib/periods";
+import { type Frequency } from "@/lib/periods";
+
+/** Periods shown per due on the profile; the totals always include every period. */
+const PERIODS_SHOWN = 12;
 import { fetchMemberStanding } from "@/lib/totals";
 import { PageHeader, StatCard, EmptyState } from "@/components/page-parts";
 import { TagPicker } from "@/routes/_authenticated/members.index";
@@ -59,7 +62,7 @@ function MemberProfile() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("members")
-        .select("id, name, phone, active, tags, branch_id, branches(name)")
+        .select("id, name, phone, active, tags, branch_id, joined_on, branches(name)")
         .eq("id", memberId)
         .maybeSingle();
       if (error) throw error;
@@ -241,10 +244,9 @@ function MemberProfile() {
   // ---- Dues standing, period by period ----
   const dueRows = (dues.data ?? []).map((d) => {
     const frequency = d.frequency as Frequency;
-    const order = periodOptions(frequency);
     const periodRows = lines
       .filter((l) => l.kind === "due" && l.ref_id === d.id)
-      .sort((a, b) => order.indexOf(a.period_label ?? "") - order.indexOf(b.period_label ?? ""))
+      .sort((a, b) => (b.period_start ?? "").localeCompare(a.period_start ?? ""))
       .map((l) => ({
         period: l.period_label ?? "",
         paid: l.paid,
@@ -260,7 +262,7 @@ function MemberProfile() {
       name: d.name,
       expected: Number(d.amount),
       frequency,
-      currentPeriodLabel: currentPeriod(frequency),
+      currentPeriodLabel: periodRows.find((p) => p.current)?.period ?? "",
       currentStatus: periodRows.find((p) => p.current)?.status ?? "Not paid",
       arrears: periodRows.reduce((s, p) => s + p.short, 0),
       penalties: periodRows.reduce((s, p) => s + p.latePenalty, 0),
@@ -344,7 +346,7 @@ function MemberProfile() {
 
       <PageHeader
         title={member.data.name}
-        subtitle={member.data.phone || "No phone saved"}
+        subtitle={`${member.data.phone || "No phone saved"} · joined ${shortDate(member.data.joined_on)}`}
         action={
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary">
@@ -452,7 +454,7 @@ function MemberProfile() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {d.periodRows.map((p) => (
+                    {d.periodRows.slice(0, PERIODS_SHOWN).map((p) => (
                       <tr key={p.period}>
                         <td className="px-5 py-2.5 font-medium">{p.period}</td>
                         <td className="px-5 py-2.5">
@@ -471,6 +473,12 @@ function MemberProfile() {
                     ))}
                   </tbody>
                 </table>
+                {d.periodRows.length > PERIODS_SHOWN && (
+                  <p className="border-t border-border px-5 py-2.5 text-xs text-muted-foreground">
+                    Showing the latest {PERIODS_SHOWN} of {d.periodRows.length} periods. The amount
+                    owing includes all of them.
+                  </p>
+                )}
                 <div className="border-t border-border px-5 py-3">
                   <Button asChild variant="ghost" size="sm" className="px-0">
                     <Link to="/dues/$dueId" params={{ dueId: d.id }}>
@@ -602,6 +610,7 @@ function MemberProfile() {
               name: member.data.name,
               phone: member.data.phone ?? "",
               branchId: member.data.branch_id,
+              joinedOn: member.data.joined_on,
               tags,
               active: member.data.active,
             }}
@@ -629,6 +638,7 @@ type MemberPatch = {
   name: string;
   phone: string | null;
   branch_id: string | null;
+  joined_on: string;
   active: boolean;
   tags: string[];
 };
@@ -643,6 +653,7 @@ function EditMemberForm({
     name: string;
     phone: string;
     branchId: string | null;
+    joinedOn: string;
     tags: string[];
     active: boolean;
   };
@@ -653,6 +664,7 @@ function EditMemberForm({
   const [name, setName] = useState(initial.name);
   const [phone, setPhone] = useState(initial.phone);
   const [branchId, setBranchId] = useState(initial.branchId ?? "none");
+  const [joinedOn, setJoinedOn] = useState(initial.joinedOn);
   const [tags, setTags] = useState(initial.tags);
   const [active, setActive] = useState(initial.active ? "yes" : "no");
 
@@ -665,6 +677,7 @@ function EditMemberForm({
           name: name.trim(),
           phone: phone.trim() || null,
           branch_id: branchId === "none" ? null : branchId,
+          joined_on: joinedOn,
           active: active === "yes",
           tags,
         });
@@ -677,6 +690,19 @@ function EditMemberForm({
       <div className="space-y-2">
         <Label htmlFor="em-phone">Phone (optional)</Label>
         <Input id="em-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="em-joined">Joined on</Label>
+        <Input
+          id="em-joined"
+          type="date"
+          required
+          value={joinedOn}
+          onChange={(e) => setJoinedOn(e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          They owe dues from this date. Changing it changes what they owe.
+        </p>
       </div>
       <div className="space-y-2">
         <Label>Branch</Label>

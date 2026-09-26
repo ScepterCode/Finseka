@@ -8,7 +8,7 @@ import { friendlyError } from "@/lib/errors";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { naira } from "@/lib/format";
+import { naira, todayIso } from "@/lib/format";
 import { frequencyLabels, type Frequency } from "@/lib/periods";
 import { EmptyState, PageHeader } from "@/components/page-parts";
 import { Badge } from "@/components/ui/badge";
@@ -118,6 +118,7 @@ function AddDueDialog({ onDone }: { onDone: () => void }) {
   const [amount, setAmount] = useState("");
   const [frequency, setFrequency] = useState<Frequency>("monthly");
   const [notes, setNotes] = useState("");
+  const [startsOn, setStartsOn] = useState(todayIso());
 
   const save = useMutation({
     mutationFn: async () => {
@@ -127,6 +128,7 @@ function AddDueDialog({ onDone }: { onDone: () => void }) {
         amount: Number(amount || 0),
         frequency,
         notes: notes || null,
+        starts_on: startsOn,
       });
       if (error) throw error;
     },
@@ -196,6 +198,20 @@ function AddDueDialog({ onDone }: { onDone: () => void }) {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="d-starts">Starts from</Label>
+            <Input
+              id="d-starts"
+              type="date"
+              required
+              value={startsOn}
+              onChange={(e) => setStartsOn(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Members owe from the period that contains this date. Pick an earlier date if the due
+              was already running before you started using FinSeka.
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="d-notes">Notes (optional)</Label>

@@ -1,19 +1,18 @@
 -- Part payments, the ledger mirror, and the totals every page shows.
 \ir fixtures.sql
+SET LOCAL finseka.today = '2026-09-25';
 
 SELECT tests.as_user(:bola) \gset
-INSERT INTO members (org_id, name) VALUES (:'org2', 'Ada M') RETURNING id AS m_ada \gset
-INSERT INTO members (org_id, name) VALUES (:'org2', 'Bayo') RETURNING id AS m_bayo \gset
-INSERT INTO members (org_id, name) VALUES (:'org2', 'Chidi') RETURNING id AS m_chidi \gset
-INSERT INTO members (org_id, name, active) VALUES (:'org2', 'Dayo', false) RETURNING id AS m_dayo \gset
+INSERT INTO members (org_id, name, joined_on) VALUES (:'org2', 'Ada M', '2026-01-01') RETURNING id AS m_ada \gset
+INSERT INTO members (org_id, name, joined_on) VALUES (:'org2', 'Bayo', '2026-01-01') RETURNING id AS m_bayo \gset
+INSERT INTO members (org_id, name, joined_on) VALUES (:'org2', 'Chidi', '2026-01-01') RETURNING id AS m_chidi \gset
+INSERT INTO members (org_id, name, active, joined_on) VALUES (:'org2', 'Dayo', false, '2026-01-01') RETURNING id AS m_dayo \gset
 
--- A monthly due of 1000 with a 200 late charge. Its start date is pinned so the test
--- does not depend on today's date.
-RESET ROLE;
-INSERT INTO dues (org_id, name, amount, frequency, penalty_amount, created_at)
+-- A monthly due of 1000 with a 200 late charge, started 1 August 2026.
+INSERT INTO dues (org_id, name, amount, frequency, penalty_amount, starts_on)
 VALUES (:'org2', 'Monthly', 1000, 'monthly', 200, '2026-08-01') RETURNING id AS due \gset
-SET LOCAL ROLE authenticated;
-\set P '''{"monthly":[{"label":"Sep 2026","ends_on":"2026-09-30"},{"label":"Aug 2026","ends_on":"2026-08-31"},{"label":"Jul 2026","ends_on":"2026-07-31"}]}'''
+-- Payments below are sent the old way, with only a period label, as the live site does
+-- until the new app is deployed. The database fills in each period's start date.
 
 -- Instalments
 INSERT INTO due_payments (org_id, due_id, member_id, period_label, amount, method)
@@ -70,31 +69,36 @@ VALUES (:'org2', 'expense', 'Chairs', 1500, 'cash');
 -- Worked example:
 --   Sep (current): Ada M paid 1000, Bayo 400 (short 600), Chidi 0 (short 1000)
 --   Aug (past):    Ada M and Bayo paid; Chidi short 1000 + 200 late charge
---   Jul: before the due existed, not counted. Dayo is inactive. The freewill Projector is never owed.
+--   Jul: before the due started, not counted. Dayo is inactive. The freewill Projector is never owed.
 --   Burial: Bayo short 1500.
 SELECT tests.eq('Bayo owes 2100',
-  (SELECT total_owing FROM member_balances(:P) WHERE name = 'Bayo'), 2100.00::numeric);
+  (SELECT total_owing FROM member_balances() WHERE name = 'Bayo'), 2100.00::numeric);
 SELECT tests.eq('Chidi owes 2200 including the late charge',
-  (SELECT total_owing FROM member_balances(:P) WHERE name = 'Chidi'), 2200.00::numeric);
+  (SELECT total_owing FROM member_balances() WHERE name = 'Chidi'), 2200.00::numeric);
 SELECT tests.eq('Ada M owes nothing',
-  (SELECT total_owing FROM member_balances(:P) WHERE name = 'Ada M'), 0.00::numeric);
+  (SELECT total_owing FROM member_balances() WHERE name = 'Ada M'), 0.00::numeric);
 SELECT tests.eq('inactive members are left out of the totals',
-  (SELECT count(*) FROM member_balances(:P) WHERE name = 'Dayo'), 0::bigint);
+  (SELECT count(*) FROM member_balances() WHERE name = 'Dayo'), 0::bigint);
 SELECT tests.eq('an inactive member''s own profile still shows what they owe',
-  (SELECT total_owing FROM member_balances(:P, :'m_dayo')), 2200.00::numeric);
+  (SELECT total_owing FROM member_balances(:'m_dayo'::uuid)), 2200.00::numeric);
 
-SELECT tests.eq('dashboard: total owed', (dashboard_summary(:P) ->> 'owed')::numeric, 4300.00);
-SELECT tests.eq('dashboard: paid this period', (dashboard_summary(:P) ->> 'dues_paid')::int, 1);
-SELECT tests.eq('dashboard: not paid this period', (dashboard_summary(:P) ->> 'dues_unpaid')::int, 2);
+SELECT tests.eq('dashboard: total owed', (dashboard_summary() ->> 'owed')::numeric, 4300.00);
+SELECT tests.eq('dashboard: paid this period', (dashboard_summary() ->> 'dues_paid')::int, 1);
+SELECT tests.eq('dashboard: not paid this period', (dashboard_summary() ->> 'dues_unpaid')::int, 2);
 SELECT tests.eq('money in, across 1,200+ rows', (ledger_totals() ->> 'income')::numeric, 7100.00);
 SELECT tests.eq('cash in hand', (ledger_totals() ->> 'cash')::numeric, 3200.00);
 SELECT tests.eq('in the bank', (ledger_totals() ->> 'bank')::numeric, 2400.00);
 SELECT tests.eq('report lists the two people owing',
-  jsonb_array_length(report_summary('2020-01-01', '2100-01-01', :P) -> 'defaulters'), 2);
+  jsonb_array_length(report_summary('2020-01-01', '2100-01-01') -> 'defaulters'), 2);
 SELECT tests.eq('burial progress: 1 of 2 paid in full',
   (SELECT (c ->> 'paid_people')::int FROM jsonb_array_elements(contribution_progress()) c WHERE c ->> 'name' = 'Burial'), 1);
+
+SELECT tests.eq('the old app''s call still works and agrees',
+  (dashboard_summary('{"monthly":[]}'::jsonb) ->> 'owed')::numeric, 4300.00);
+SELECT tests.eq('payments sent with a label get the period''s start date',
+  (SELECT DISTINCT period_start FROM due_payments WHERE period_label = 'Aug 2026'), '2026-08-01'::date);
 
 -- The other organization sees none of it
 SELECT tests.as_user(:ada) \gset
 SELECT tests.eq('Org One sees none of Org Two''s money', (ledger_totals() ->> 'income')::numeric, 0::numeric);
-SELECT tests.eq('Org One owes nothing', (dashboard_summary(:P) ->> 'owed')::numeric, 0::numeric);
+SELECT tests.eq('Org One owes nothing', (dashboard_summary() ->> 'owed')::numeric, 0::numeric);

@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { naira, shortDate } from "@/lib/format";
 import { fetchDashboardSummary } from "@/lib/totals";
 import { PageHeader, StatCard, EmptyState } from "@/components/page-parts";
+import { OpeningBalanceCard } from "@/components/opening-balance-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -72,6 +73,8 @@ function Dashboard() {
         title="Dashboard"
         subtitle="Everything at a glance — money in hand, money being owed."
       />
+
+      <OpeningBalanceCard />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard

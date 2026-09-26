@@ -309,6 +309,7 @@ export type Database = {
           org_id: string;
           paid_at: string;
           period_label: string;
+          period_start: string;
         };
         Insert: {
           amount?: number;
@@ -325,6 +326,7 @@ export type Database = {
           org_id: string;
           paid_at?: string;
           period_label: string;
+          period_start?: string;
         };
         Update: {
           amount?: number;
@@ -341,6 +343,7 @@ export type Database = {
           org_id?: string;
           paid_at?: string;
           period_label?: string;
+          period_start?: string;
         };
         Relationships: [
           {
@@ -366,6 +369,36 @@ export type Database = {
           },
         ];
       };
+      due_rates: {
+        Row: {
+          amount: number;
+          created_at: string;
+          created_by: string | null;
+          due_id: string;
+          effective_from: string;
+          id: string;
+          org_id: string;
+        };
+        Insert: {
+          amount: number;
+          created_at?: string;
+          created_by?: string | null;
+          due_id: string;
+          effective_from: string;
+          id?: string;
+          org_id: string;
+        };
+        Update: {
+          amount?: number;
+          created_at?: string;
+          created_by?: string | null;
+          due_id?: string;
+          effective_from?: string;
+          id?: string;
+          org_id?: string;
+        };
+        Relationships: [];
+      };
       dues: {
         Row: {
           active: boolean;
@@ -378,6 +411,7 @@ export type Database = {
           org_id: string;
           penalty_amount: number;
           penalty_grace_days: number;
+          starts_on: string;
         };
         Insert: {
           active?: boolean;
@@ -390,6 +424,7 @@ export type Database = {
           org_id: string;
           penalty_amount?: number;
           penalty_grace_days?: number;
+          starts_on?: string;
         };
         Update: {
           active?: boolean;
@@ -402,6 +437,7 @@ export type Database = {
           org_id?: string;
           penalty_amount?: number;
           penalty_grace_days?: number;
+          starts_on?: string;
         };
         Relationships: [
           {
@@ -492,6 +528,7 @@ export type Database = {
           created_at: string;
           id: string;
           name: string;
+          joined_on: string;
           org_id: string;
           phone: string | null;
           tags: string[];
@@ -502,6 +539,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           name: string;
+          joined_on?: string;
           org_id: string;
           phone?: string | null;
           tags?: string[];
@@ -512,6 +550,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           name?: string;
+          joined_on?: string;
           org_id?: string;
           phone?: string | null;
           tags?: string[];
@@ -645,10 +684,10 @@ export type Database = {
       };
       contribution_progress: { Args: { _open_only?: boolean }; Returns: Json };
       current_org_id: { Args: never; Returns: string };
-      dashboard_summary: { Args: { _periods: Json }; Returns: Json };
+      dashboard_summary: { Args: never; Returns: Json };
       ledger_totals: { Args: { _from?: string; _to?: string }; Returns: Json };
       member_balances: {
-        Args: { _member_id?: string; _periods: Json };
+        Args: { _member_id?: string };
         Returns: {
           contributions_owing: number;
           dues_owing: number;
@@ -658,12 +697,9 @@ export type Database = {
           total_owing: number;
         }[];
       };
-      report_summary: {
-        Args: { _from: string; _periods: Json; _to: string };
-        Returns: Json;
-      };
+      report_summary: { Args: { _from: string; _to: string }; Returns: Json };
       standing_lines: {
-        Args: { _member_id?: string; _periods: Json };
+        Args: { _member_id?: string };
         Returns: {
           expected: number;
           is_current: boolean;
@@ -672,11 +708,32 @@ export type Database = {
           member_id: string;
           paid: number;
           penalty: number;
+          period_end: string | null;
           period_label: string | null;
+          period_start: string | null;
           ref_id: string;
           ref_name: string;
           short: number;
         }[];
+      };
+      change_due_amount: {
+        Args: { _amount: number; _due_id: string; _from: string };
+        Returns: undefined;
+      };
+      due_period_list: {
+        Args: { _due_id: string };
+        Returns: {
+          expected: number;
+          is_current: boolean;
+          is_past: boolean;
+          label: string;
+          period_end: string | null;
+          period_start: string;
+        }[];
+      };
+      set_opening_balance: {
+        Args: { _as_of?: string; _bank: number; _cash: number };
+        Returns: undefined;
       };
       has_role: {
         Args: {

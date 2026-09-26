@@ -8,7 +8,7 @@ import { friendlyError } from "@/lib/errors";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { initials } from "@/lib/format";
+import { initials, todayIso } from "@/lib/format";
 import { PageHeader, EmptyState } from "@/components/page-parts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -280,6 +280,7 @@ function AddMemberDialog({
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [joinedOn, setJoinedOn] = useState(todayIso());
   const [branchId, setBranchId] = useState<string>(branches[0]?.id ?? "");
   const [tags, setTags] = useState<string[]>([]);
 
@@ -289,6 +290,7 @@ function AddMemberDialog({
         org_id: orgId!,
         name,
         phone: phone || null,
+        joined_on: joinedOn,
         branch_id: branchId || null,
         tags,
       });
@@ -338,6 +340,19 @@ function AddMemberDialog({
               onChange={(e) => setPhone(e.target.value)}
               placeholder="0803 000 0000"
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="m-joined">Joined on</Label>
+            <Input
+              id="m-joined"
+              type="date"
+              required
+              value={joinedOn}
+              onChange={(e) => setJoinedOn(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              They owe dues from this date. For long-standing members, use when they really joined.
+            </p>
           </div>
           <div className="space-y-2">
             <Label>Branch</Label>
