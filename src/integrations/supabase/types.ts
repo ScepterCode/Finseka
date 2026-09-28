@@ -305,6 +305,12 @@ export type Database = {
           },
         ];
       };
+      due_members: {
+        Row: { due_id: string; id: string; member_id: string; org_id: string };
+        Insert: { due_id: string; id?: string; member_id: string; org_id: string };
+        Update: { due_id?: string; id?: string; member_id?: string; org_id?: string };
+        Relationships: [];
+      };
       due_payments: {
         Row: {
           amount: number;
@@ -419,6 +425,9 @@ export type Database = {
       };
       dues: {
         Row: {
+          audience: Database["public"]["Enums"]["due_audience"];
+          audience_branch_ids: string[];
+          audience_labels: string[];
           active: boolean;
           amount: number;
           created_at: string;
@@ -432,6 +441,9 @@ export type Database = {
           starts_on: string;
         };
         Insert: {
+          audience?: Database["public"]["Enums"]["due_audience"];
+          audience_branch_ids?: string[];
+          audience_labels?: string[];
           active?: boolean;
           amount?: number;
           created_at?: string;
@@ -445,6 +457,9 @@ export type Database = {
           starts_on?: string;
         };
         Update: {
+          audience?: Database["public"]["Enums"]["due_audience"];
+          audience_branch_ids?: string[];
+          audience_labels?: string[];
           active?: boolean;
           amount?: number;
           created_at?: string;
@@ -745,6 +760,7 @@ export type Database = {
         Args: { _amount: number; _due_id: string; _from: string };
         Returns: undefined;
       };
+      due_member_ids: { Args: { _due_id: string }; Returns: string[] };
       due_period_list: {
         Args: { _due_id: string };
         Returns: {
@@ -795,6 +811,7 @@ export type Database = {
       app_role: "admin" | "viewer";
       due_frequency: "daily" | "weekly" | "monthly" | "yearly" | "custom";
       ledger_kind: "income" | "expense";
+      due_audience: "everyone" | "labels" | "branches" | "people";
       payment_method: "cash" | "transfer";
       payment_channel:
         "cash" | "bank_transfer" | "pos" | "ussd" | "mobile_money" | "cheque" | "other";
@@ -922,6 +939,7 @@ export const Constants = {
       app_role: ["admin", "viewer"],
       due_frequency: ["daily", "weekly", "monthly", "yearly", "custom"],
       ledger_kind: ["income", "expense"],
+      due_audience: ["everyone", "labels", "branches", "people"],
       payment_method: ["cash", "transfer"],
       payment_channel: ["cash", "bank_transfer", "pos", "ussd", "mobile_money", "cheque", "other"],
     },

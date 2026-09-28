@@ -7,11 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { channels, type PayChannel } from "@/lib/methods";
-
-export type PaymentMode = { channel: PayChannel; reference: string };
-
-export const defaultPaymentMode: PaymentMode = { channel: "cash", reference: "" };
+import { channels, type PayChannel, type PaymentMode } from "@/lib/methods";
 
 /** How the money moved, and an optional reference (bank, transfer ref, receipt number). */
 export function PaymentModeFields({

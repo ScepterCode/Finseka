@@ -13,11 +13,8 @@ import { localIso, naira, shortDate, todayIso } from "@/lib/format";
 import { fetchLedgerTotals } from "@/lib/totals";
 import { downloadCsv, fileSlug, toCsv } from "@/lib/csv";
 import { channelLabel, paymentModeText } from "@/lib/methods";
-import {
-  PaymentModeFields,
-  defaultPaymentMode,
-  type PaymentMode,
-} from "@/components/method-select";
+import { PaymentModeFields } from "@/components/method-select";
+import { defaultPaymentMode, type PaymentMode } from "@/lib/methods";
 import { ReasonDialog } from "@/components/reason-dialog";
 import { SearchBox } from "@/components/search-box";
 import { matchesPerson } from "@/lib/search";

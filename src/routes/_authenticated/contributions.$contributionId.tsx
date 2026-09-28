@@ -12,11 +12,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { naira, shortDate, todayIso } from "@/lib/format";
 import { paymentModeText } from "@/lib/methods";
 import { EmptyState, PageHeader, StatCard } from "@/components/page-parts";
-import {
-  PaymentModeFields,
-  defaultPaymentMode,
-  type PaymentMode,
-} from "@/components/method-select";
+import { PaymentModeFields } from "@/components/method-select";
+import { defaultPaymentMode, type PaymentMode } from "@/lib/methods";
 import { RemindButton } from "@/components/remind-button";
 import { SearchBox } from "@/components/search-box";
 import { matchesPerson } from "@/lib/search";

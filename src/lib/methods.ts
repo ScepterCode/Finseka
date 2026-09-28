@@ -38,3 +38,7 @@ export function paymentModeText(
 export function methodShort(method: string | null | undefined, channel?: string | null) {
   return channelLabel(channel, method);
 }
+
+export type PaymentMode = { channel: PayChannel; reference: string };
+
+export const defaultPaymentMode: PaymentMode = { channel: "cash", reference: "" };

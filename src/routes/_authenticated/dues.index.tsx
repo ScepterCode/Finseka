@@ -8,6 +8,14 @@ import { friendlyError } from "@/lib/errors";
 
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAll } from "@/lib/fetch-all";
+import { DueAudienceFields } from "@/components/due-audience-fields";
+import {
+  audienceIsValid,
+  describeAudience,
+  everyone,
+  saveDueMembers,
+  type AudienceValue,
+} from "@/lib/audience";
 import { useAuth } from "@/hooks/useAuth";
 import { naira, todayIso } from "@/lib/format";
 import { frequencyLabels, type Frequency } from "@/lib/periods";
@@ -50,6 +58,17 @@ function DuesPage() {
   const { orgId, isAdmin } = useAuth();
   const queryClient = useQueryClient();
 
+  const branchNames = useQuery({
+    queryKey: ["branches", orgId],
+    enabled: !!orgId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("branches").select("id, name").order("name");
+      if (error) throw error;
+      return data;
+    },
+    select: (rows) => new Map(rows.map((b) => [b.id, b.name])),
+  });
+
   const dues = useQuery({
     queryKey: ["dues", orgId],
     enabled: !!orgId,
@@ -57,7 +76,9 @@ function DuesPage() {
       const data = await fetchAll((from, to) =>
         supabase
           .from("dues")
-          .select("id, name, amount, frequency, notes, active")
+          .select(
+            "id, name, amount, frequency, notes, active, audience, audience_labels, audience_branch_ids",
+          )
           .order("created_at", { ascending: false })
           .order("id")
           .range(from, to),
@@ -102,6 +123,7 @@ function DuesPage() {
                   </span>
                   <span className="mt-1 block text-sm text-muted-foreground">
                     {naira(d.amount)} · {frequencyLabels[d.frequency as Frequency]}
+                    {d.audience !== "everyone" && ` · ${describeAudience(d, branchNames.data)}`}
                   </span>
                 </span>
                 {!d.active && <Badge variant="secondary">Stopped</Badge>}
@@ -123,24 +145,37 @@ function AddDueDialog({ onDone }: { onDone: () => void }) {
   const [frequency, setFrequency] = useState<Frequency>("monthly");
   const [notes, setNotes] = useState("");
   const [startsOn, setStartsOn] = useState(todayIso());
+  const [audience, setAudience] = useState<AudienceValue>(everyone);
 
   const save = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("dues").insert({
-        org_id: orgId!,
-        name,
-        amount: Number(amount || 0),
-        frequency,
-        notes: notes || null,
-        starts_on: startsOn,
-      });
+      if (!audienceIsValid(audience)) throw new Error("Pick who should pay this due.");
+      const { data, error } = await supabase
+        .from("dues")
+        .insert({
+          org_id: orgId!,
+          name,
+          amount: Number(amount || 0),
+          frequency,
+          notes: notes || null,
+          starts_on: startsOn,
+          audience: audience.audience,
+          audience_labels: audience.audience === "labels" ? audience.labels : [],
+          audience_branch_ids: audience.audience === "branches" ? audience.branchIds : [],
+        })
+        .select("id")
+        .single();
       if (error) throw error;
+      if (audience.audience === "people") {
+        await saveDueMembers(orgId!, data.id, [], audience.memberIds);
+      }
     },
     onSuccess: () => {
       toast.success("Due created");
       setName("");
       setAmount("");
       setNotes("");
+      setAudience(everyone);
       setOpen(false);
       onDone();
     },
@@ -154,7 +189,7 @@ function AddDueDialog({ onDone }: { onDone: () => void }) {
           <Plus className="size-4" /> New due
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create a due</DialogTitle>
           <DialogDescription>What is it called, how much, and how often?</DialogDescription>
@@ -217,6 +252,7 @@ function AddDueDialog({ onDone }: { onDone: () => void }) {
               was already running before you started using FinSeka.
             </p>
           </div>
+          <DueAudienceFields value={audience} onChange={setAudience} orgId={orgId} />
           <div className="space-y-2">
             <Label htmlFor="d-notes">Notes (optional)</Label>
             <Textarea id="d-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />

@@ -9,12 +9,17 @@ import { fetchAll } from "@/lib/fetch-all";
 import { useAuth } from "@/hooks/useAuth";
 import { friendlyError } from "@/lib/errors";
 import { initials, naira, shortDate, todayIso } from "@/lib/format";
-import {
-  PaymentModeFields,
-  defaultPaymentMode,
-  type PaymentMode,
-} from "@/components/method-select";
+import { DueAudienceFields } from "@/components/due-audience-fields";
+import { PaymentModeFields } from "@/components/method-select";
+import { defaultPaymentMode, type PaymentMode } from "@/lib/methods";
 import { RemindButton } from "@/components/remind-button";
+import {
+  audienceIsValid,
+  describeAudience,
+  saveDueMembers,
+  type Audience,
+  type AudienceValue,
+} from "@/lib/audience";
 import { SearchBox } from "@/components/search-box";
 import { matchesPerson } from "@/lib/search";
 import { frequencyLabels, type Frequency } from "@/lib/periods";
@@ -71,7 +76,7 @@ function DueDetail() {
       const { data, error } = await supabase
         .from("dues")
         .select(
-          "id, name, amount, frequency, notes, active, penalty_amount, penalty_grace_days, starts_on",
+          "id, name, amount, frequency, notes, active, penalty_amount, penalty_grace_days, starts_on, audience, audience_labels, audience_branch_ids",
         )
         .eq("id", dueId)
         .maybeSingle();
@@ -98,6 +103,37 @@ function DueDetail() {
   });
 
   const frequency = (due.data?.frequency ?? "monthly") as Frequency;
+
+  const branchNames = useQuery({
+    queryKey: ["branches", orgId],
+    enabled: !!orgId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("branches").select("id, name").order("name");
+      if (error) throw error;
+      return data;
+    },
+    select: (rows) => new Map(rows.map((b) => [b.id, b.name])),
+  });
+
+  // The active members this due applies to (everyone, a label, a branch or picked people).
+  const appliesTo = useQuery({
+    queryKey: ["due-applies-to", dueId],
+    queryFn: async () => {
+      const [ids, picked] = await Promise.all([
+        supabase.rpc("due_member_ids", { _due_id: dueId }),
+        fetchAll((from, to) =>
+          supabase
+            .from("due_members")
+            .select("member_id")
+            .eq("due_id", dueId)
+            .order("id")
+            .range(from, to),
+        ),
+      ]);
+      if (ids.error) throw ids.error;
+      return { ids: new Set(ids.data ?? []), picked: picked.map((p) => p.member_id) };
+    },
+  });
 
   // Every period of this due since it started, newest first, with the amount for each.
   const periods = useQuery({
@@ -172,16 +208,38 @@ function DueDetail() {
 
   const [editing, setEditing] = useState(false);
   const saveDue = useMutation({
-    mutationFn: async (patch: DuePatch) => {
-      const { error } = await supabase.from("dues").update(patch).eq("id", dueId);
+    mutationFn: async ({ audience, ...patch }: DuePatch & { audience: AudienceValue }) => {
+      if (!audienceIsValid(audience)) throw new Error("Pick who should pay this due.");
+      const { error } = await supabase
+        .from("dues")
+        .update({
+          ...patch,
+          audience: audience.audience,
+          audience_labels: audience.audience === "labels" ? audience.labels : [],
+          audience_branch_ids: audience.audience === "branches" ? audience.branchIds : [],
+        })
+        .eq("id", dueId);
       if (error) throw error;
+      await saveDueMembers(
+        orgId!,
+        dueId,
+        appliesTo.data?.picked ?? [],
+        audience.audience === "people" ? audience.memberIds : [],
+      );
     },
     onSuccess: () => {
       toast.success("Due updated");
       setEditing(false);
-      queryClient.invalidateQueries({ queryKey: ["due", dueId] });
-      queryClient.invalidateQueries({ queryKey: ["dues"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      for (const key of [
+        "due",
+        "dues",
+        "dashboard",
+        "reports",
+        "due-applies-to",
+        "member-standing",
+      ]) {
+        queryClient.invalidateQueries({ queryKey: [key] });
+      }
     },
     onError: (e: Error) => toast.error(friendlyError(e)),
   });
@@ -206,7 +264,7 @@ function DueDetail() {
     onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
-  if (due.isLoading || members.isLoading || periods.isLoading) {
+  if (due.isLoading || members.isLoading || periods.isLoading || appliesTo.isLoading) {
     return (
       <div className="grid place-items-center py-20">
         <Loader2 className="size-6 animate-spin text-primary" />
@@ -236,7 +294,9 @@ function DueDetail() {
   const expected = Number(selected?.expected ?? due.data.amount);
   // Only people who had joined by the end of this period are expected to pay for it.
   const all = (members.data ?? []).filter(
-    (m) => !selected?.period_end || m.joined_on <= selected.period_end,
+    (m) =>
+      appliesTo.data?.ids.has(m.id) &&
+      (!selected?.period_end || m.joined_on <= selected.period_end),
   );
   const paid = all.filter((m) => (paidByMember.get(m.id) ?? 0) >= expected && expected > 0);
   const partial = all.filter(
@@ -259,7 +319,7 @@ function DueDetail() {
 
       <PageHeader
         title={due.data.name}
-        subtitle={`${naira(due.data.amount)} · ${frequencyLabels[frequency]}${
+        subtitle={`${naira(due.data.amount)} · ${frequencyLabels[frequency]} · ${describeAudience(due.data, branchNames.data)}${
           due.data.notes ? ` · ${due.data.notes}` : ""
         }`}
         action={
@@ -307,7 +367,14 @@ function DueDetail() {
               penalty: Number(due.data.penalty_amount ?? 0),
               graceDays: Number(due.data.penalty_grace_days ?? 0),
               active: due.data.active,
+              audience: {
+                audience: due.data.audience as Audience,
+                labels: due.data.audience_labels ?? [],
+                branchIds: due.data.audience_branch_ids ?? [],
+                memberIds: appliesTo.data?.picked ?? [],
+              },
             }}
+            orgId={orgId}
             pending={saveDue.isPending}
             onSave={(patch) => saveDue.mutate(patch)}
           />
@@ -444,18 +511,28 @@ type DuePatch = {
 
 function EditDueForm({
   initial,
+  orgId,
   pending,
   onSave,
 }: {
-  initial: { name: string; notes: string; penalty: number; graceDays: number; active: boolean };
+  initial: {
+    name: string;
+    notes: string;
+    penalty: number;
+    graceDays: number;
+    active: boolean;
+    audience: AudienceValue;
+  };
+  orgId: string | null;
   pending: boolean;
-  onSave: (patch: DuePatch) => void;
+  onSave: (patch: DuePatch & { audience: AudienceValue }) => void;
 }) {
   const [name, setName] = useState(initial.name);
   const [notes, setNotes] = useState(initial.notes);
   const [penalty, setPenalty] = useState(String(initial.penalty || ""));
   const [graceDays, setGraceDays] = useState(String(initial.graceDays || ""));
   const [active, setActive] = useState(initial.active ? "yes" : "no");
+  const [audience, setAudience] = useState<AudienceValue>(initial.audience);
 
   return (
     <form
@@ -468,6 +545,7 @@ function EditDueForm({
           penalty_amount: Number(penalty || 0),
           penalty_grace_days: Number(graceDays || 0),
           active: active === "yes",
+          audience,
         });
       }}
     >
@@ -500,6 +578,7 @@ function EditDueForm({
           placeholder="0"
         />
       </div>
+      <DueAudienceFields value={audience} onChange={setAudience} orgId={orgId} />
       <div className="space-y-2">
         <Label>Still collecting this due?</Label>
         <Select value={active} onValueChange={setActive}>
