@@ -22,6 +22,7 @@ import { ReasonDialog } from "@/components/reason-dialog";
 import { RemindButton } from "@/components/remind-button";
 import { MemberStatement } from "@/components/member-statement";
 import { MemberPaymentDialog } from "@/components/member-payment-dialog";
+import { DebtPaymentDialog, type Debt } from "@/components/debt-payment-dialog";
 import { buildStatement } from "@/lib/statement";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +62,7 @@ function MemberProfile() {
   const { isAdmin, orgId, org } = useAuth();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
+  const [payingDebt, setPayingDebt] = useState<Debt | null>(null);
 
   const member = useQuery({
     queryKey: ["member", memberId],
@@ -270,6 +272,7 @@ function MemberProfile() {
       .sort((a, b) => (b.period_start ?? "").localeCompare(a.period_start ?? ""))
       .map((l) => ({
         period: l.period_label ?? "",
+        periodStart: l.period_start ?? "",
         paid: l.paid,
         short: l.short,
         latePenalty: l.penalty,
@@ -506,6 +509,7 @@ function MemberProfile() {
                         <th className="px-5 py-2.5">Status</th>
                         <th className="px-5 py-2.5 text-right">Paid</th>
                         <th className="px-5 py-2.5 text-right">Still owing</th>
+                        {isAdmin && <th className="px-5 py-2.5" />}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
@@ -524,6 +528,27 @@ function MemberProfile() {
                               </span>
                             )}
                           </td>
+                          {isAdmin && (
+                            <td className="px-5 py-2.5 text-right">
+                              {p.short > 0 && (
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    setPayingDebt({
+                                      kind: "due",
+                                      dueId: d.id,
+                                      periodStart: p.periodStart,
+                                      periodLabel: p.period,
+                                      title: `${d.name} — ${p.period}`,
+                                      owing: p.short,
+                                    })
+                                  }
+                                >
+                                  Pay
+                                </Button>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -563,6 +588,7 @@ function MemberProfile() {
                     <th className="px-5 py-3">Status</th>
                     <th className="px-5 py-3 text-right">Paid</th>
                     <th className="px-5 py-3 text-right">Owing</th>
+                    {isAdmin && <th className="px-5 py-3" />}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -587,6 +613,25 @@ function MemberProfile() {
                       <td className="px-5 py-3 text-right text-destructive">
                         {c.owing ? naira(c.owing) : "—"}
                       </td>
+                      {isAdmin && (
+                        <td className="px-5 py-3 text-right">
+                          {c.owing > 0 && !c.closed && (
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                setPayingDebt({
+                                  kind: "contribution",
+                                  contributionId: c.id,
+                                  title: c.name,
+                                  owing: c.owing,
+                                })
+                              }
+                            >
+                              Pay
+                            </Button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -679,6 +724,14 @@ function MemberProfile() {
           />
         </DialogContent>
       </Dialog>
+
+      <DebtPaymentDialog
+        orgId={orgId!}
+        memberId={memberId}
+        memberName={member.data.name}
+        debt={payingDebt}
+        onClose={() => setPayingDebt(null)}
+      />
 
       <ReasonDialog
         open={!!cancelling}
