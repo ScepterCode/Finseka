@@ -14,6 +14,7 @@ import { initials } from "@/lib/format";
 import { inviteTeamMember, deleteMyAccount, type InviteResult } from "@/lib/team.functions";
 import { EmptyState, PageHeader } from "@/components/page-parts";
 import { ConfirmButton } from "@/components/confirm";
+import { FinancialYearSettings } from "@/components/financial-year-settings";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -250,6 +251,8 @@ function SettingsPage() {
           )}
         </form>
       </section>
+
+      <FinancialYearSettings />
 
       <section className="space-y-4">
         <div className="flex items-end justify-between gap-4">

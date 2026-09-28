@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { localIso, naira } from "@/lib/format";
 import { fetchReportSummary } from "@/lib/totals";
 import { downloadCsv, fileSlug, toCsv } from "@/lib/csv";
+import { YearEndReport } from "@/components/year-end-report";
 import { Button } from "@/components/ui/button";
 import { EmptyState, PageHeader, StatCard } from "@/components/page-parts";
 import { Badge } from "@/components/ui/badge";
@@ -211,6 +212,7 @@ function ReportsPage() {
                 Who is owing ({report.data.defaulters.length})
               </TabsTrigger>
               <TabsTrigger value="contributions">Contributions</TabsTrigger>
+              <TabsTrigger value="year">Year-end</TabsTrigger>
             </TabsList>
             <div className="print-hide mt-3 flex flex-wrap gap-2">
               <Button variant="outline" className="gap-2" onClick={() => window.print()}>
@@ -371,6 +373,16 @@ function ReportsPage() {
                   </table>
                 </div>
               )}
+            </TabsContent>
+            <TabsContent
+              value="year"
+              forceMount
+              className="mt-5 data-[state=inactive]:hidden print:mt-8"
+            >
+              <h2 className="mb-3 hidden font-display text-lg font-semibold print:block">
+                Year-end statement
+              </h2>
+              <YearEndReport />
             </TabsContent>
           </Tabs>
         </>

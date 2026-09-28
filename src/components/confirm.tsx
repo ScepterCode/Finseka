@@ -69,6 +69,7 @@ export function ConfirmDialog({
   cancelLabel = "No, go back",
   onConfirm,
   destructive = false,
+  children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -78,6 +79,8 @@ export function ConfirmDialog({
   cancelLabel?: string;
   onConfirm: () => void;
   destructive?: boolean;
+  /** Extra content between the description and the buttons, e.g. a notes field. */
+  children?: ReactNode;
 }) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -86,6 +89,7 @@ export function ConfirmDialog({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
+        {children}
         <AlertDialogFooter>
           <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction

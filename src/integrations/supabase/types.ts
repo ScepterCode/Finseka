@@ -482,6 +482,57 @@ export type Database = {
           },
         ];
       };
+      fiscal_years: {
+        Row: {
+          id: string;
+          org_id: string;
+          starts_on: string;
+          ends_on: string;
+          closed_at: string;
+          closed_by: string | null;
+          opening_cash: number;
+          opening_bank: number;
+          income: number;
+          expense: number;
+          closing_cash: number;
+          closing_bank: number;
+          owed_at_close: number;
+          notes: string | null;
+        };
+        Insert: {
+          id?: string;
+          org_id?: string;
+          starts_on?: string;
+          ends_on?: string;
+          closed_at?: string;
+          closed_by?: string | null;
+          opening_cash?: number;
+          opening_bank?: number;
+          income?: number;
+          expense?: number;
+          closing_cash?: number;
+          closing_bank?: number;
+          owed_at_close?: number;
+          notes?: string | null;
+        };
+        Update: {
+          id?: string;
+          org_id?: string;
+          starts_on?: string;
+          ends_on?: string;
+          closed_at?: string;
+          closed_by?: string | null;
+          opening_cash?: number;
+          opening_bank?: number;
+          income?: number;
+          expense?: number;
+          closing_cash?: number;
+          closing_bank?: number;
+          owed_at_close?: number;
+          notes?: string | null;
+        };
+        Relationships: [];
+      };
       ledger_entries: {
         Row: {
           amount: number;
@@ -613,6 +664,7 @@ export type Database = {
       };
       organizations: {
         Row: {
+          fiscal_year_start_month: number;
           created_at: string;
           created_by: string;
           id: string;
@@ -621,6 +673,7 @@ export type Database = {
           opening_balance_set: boolean;
         };
         Insert: {
+          fiscal_year_start_month?: number;
           created_at?: string;
           created_by: string;
           id?: string;
@@ -629,6 +682,7 @@ export type Database = {
           opening_balance_set?: boolean;
         };
         Update: {
+          fiscal_year_start_month?: number;
           created_at?: string;
           created_by?: string;
           id?: string;
@@ -776,6 +830,12 @@ export type Database = {
         Args: { _as_of?: string; _bank: number; _cash: number };
         Returns: undefined;
       };
+      financial_year_of: {
+        Args: { _d: string };
+        Returns: { ends_on: string; label: string; starts_on: string }[];
+      };
+      financial_year_summary: { Args: { _any_date?: string }; Returns: Json };
+      close_financial_year: { Args: { _any_date: string; _notes?: string }; Returns: undefined };
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"];
