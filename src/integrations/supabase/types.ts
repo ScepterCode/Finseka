@@ -765,6 +765,10 @@ export type Database = {
     };
     Functions: {
       account_deletion_blocker: { Args: never; Returns: string | null };
+      analytics_summary: {
+        Args: { _branch_id?: string; _from: string; _label?: string; _to: string };
+        Returns: Json;
+      };
       attach_member: {
         Args: {
           _full_name: string;

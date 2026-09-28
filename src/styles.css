@@ -213,3 +213,19 @@
     box-shadow: none !important;
   }
 }
+
+/* Chart colors (validated for colour-blind separation and contrast on the card surface). */
+:root {
+  --viz-1: #2a78d6; /* first series: blue */
+  --viz-2: #eb6834; /* second series: orange */
+  --viz-grid: #ebe9e3; /* hairline gridlines */
+  --viz-axis: #898781; /* axis labels */
+  --viz-surface: #ffffff; /* card behind the charts: gaps and rings use it */
+}
+.dark {
+  --viz-1: #3987e5;
+  --viz-2: #d95926;
+  --viz-grid: #3a2e2b;
+  --viz-axis: #a39c93;
+  --viz-surface: #281c1a;
+}

@@ -6,6 +6,7 @@ import {
   HeartHandshake,
   BookOpen,
   FileBarChart,
+  ChartColumn,
   History,
   Settings,
   Wallet,
@@ -31,6 +32,7 @@ const items = [
   { title: "Contributions", url: "/contributions", icon: HeartHandshake },
   { title: "Ledger", url: "/ledger", icon: BookOpen },
   { title: "Reports", url: "/reports", icon: FileBarChart },
+  { title: "Analytics", url: "/analytics", icon: ChartColumn },
   { title: "History", url: "/history", icon: History },
   { title: "Settings & Admin", url: "/settings", icon: Settings },
 ] as const;
