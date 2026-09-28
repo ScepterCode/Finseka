@@ -15,6 +15,8 @@ import { downloadCsv, fileSlug, toCsv } from "@/lib/csv";
 import { methodShort, type PayMethod } from "@/lib/methods";
 import { MethodSelect } from "@/components/method-select";
 import { ReasonDialog } from "@/components/reason-dialog";
+import { SearchBox } from "@/components/search-box";
+import { matchesPerson } from "@/lib/search";
 import { EmptyState, PageHeader, StatCard } from "@/components/page-parts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -466,6 +468,7 @@ function AddEntryDialog({
   const { orgId } = useAuth();
   const [open, setOpen] = useState(false);
   const [memberId, setMemberId] = useState<string>("none");
+  const [memberSearch, setMemberSearch] = useState("");
   const [kind, setKind] = useState<"income" | "expense">("expense");
   const [label, setLabel] = useState("Expense");
   const [description, setDescription] = useState("");
@@ -567,17 +570,28 @@ function AddEntryDialog({
           <MethodSelect value={method} onChange={setMethod} />
           <div className="space-y-2">
             <Label>Which member is this about? (optional)</Label>
+            {members.length > 10 && (
+              <SearchBox
+                value={memberSearch}
+                onChange={setMemberSearch}
+                placeholder="Find a member"
+              />
+            )}
             <Select value={memberId} onValueChange={setMemberId}>
               <SelectTrigger>
                 <SelectValue placeholder="Nobody in particular" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Nobody in particular</SelectItem>
-                {members.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.name}
-                  </SelectItem>
-                ))}
+                {members
+                  // keep the chosen member listed even when the search no longer matches them
+                  .filter((m) => m.id === memberId || matchesPerson(memberSearch, m.name))
+                  .slice(0, 200)
+                  .map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>

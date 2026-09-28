@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, Search, ChevronRight } from "lucide-react";
+import { Loader2, Plus, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 import { friendlyError } from "@/lib/errors";
@@ -10,6 +10,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAll } from "@/lib/fetch-all";
 import { useAuth } from "@/hooks/useAuth";
 import { initials, todayIso } from "@/lib/format";
+import { SearchBox } from "@/components/search-box";
+import { matchesPerson } from "@/lib/search";
 import { PageHeader, EmptyState } from "@/components/page-parts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,7 +92,7 @@ function MembersPage() {
   ].sort();
 
   const filtered = (members.data ?? []).filter((m) => {
-    const matchesName = m.name.toLowerCase().includes(search.toLowerCase());
+    const matchesName = matchesPerson(search, m.name, m.phone);
     const tags = (m.tags as string[] | null) ?? [];
     return matchesName && (tagFilter === "all" || tags.includes(tagFilter));
   });
@@ -111,15 +113,7 @@ function MembersPage() {
       />
 
       <div className="flex flex-wrap gap-3">
-        <div className="relative max-w-sm flex-1">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="pl-9"
-            placeholder="Search a name"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        <SearchBox value={search} onChange={setSearch} className="max-w-sm flex-1" />
         {allTags.length > 0 && (
           <div className="w-44">
             <Select value={tagFilter} onValueChange={setTagFilter}>

@@ -12,6 +12,8 @@ import { initials, naira, shortDate, todayIso } from "@/lib/format";
 import { type PayMethod } from "@/lib/methods";
 import { MethodSelect } from "@/components/method-select";
 import { RemindButton } from "@/components/remind-button";
+import { SearchBox } from "@/components/search-box";
+import { matchesPerson } from "@/lib/search";
 import { frequencyLabels, type Frequency } from "@/lib/periods";
 import { EmptyState, PageHeader, StatCard } from "@/components/page-parts";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +60,7 @@ function DueDetail() {
   const queryClient = useQueryClient();
   const [periodStart, setPeriodStart] = useState<string | null>(null);
   const [paying, setPaying] = useState<Member | null>(null);
+  const [search, setSearch] = useState("");
 
   const due = useQuery({
     queryKey: ["due", dueId],
@@ -236,6 +239,8 @@ function DueDetail() {
     (m) => (paidByMember.get(m.id) ?? 0) > 0 && (paidByMember.get(m.id) ?? 0) < expected,
   );
   const notPaid = all.filter((m) => !paidByMember.get(m.id));
+  // The totals above always cover everyone; the search only narrows the lists below.
+  const find = (list: Member[]) => list.filter((m) => matchesPerson(search, m.name, m.phone));
   const collected = [...paidByMember.values()].reduce((s, v) => s + v, 0);
   const overdue = selected?.is_past ?? false;
   const periodLabel = selected?.label ?? "";
@@ -333,72 +338,75 @@ function DueDetail() {
           hint="Add members first, then come back to tick payments."
         />
       ) : (
-        <Tabs defaultValue="notpaid">
-          <TabsList>
-            <TabsTrigger value="notpaid">
-              {overdue ? "Overdue" : "Not paid"} ({notPaid.length})
-            </TabsTrigger>
-            <TabsTrigger value="paid">Paid ({paid.length})</TabsTrigger>
-            <TabsTrigger value="partial">Part payment ({partial.length})</TabsTrigger>
-          </TabsList>
+        <div className="space-y-4">
+          <SearchBox value={search} onChange={setSearch} className="max-w-sm" />
+          <Tabs defaultValue="notpaid">
+            <TabsList>
+              <TabsTrigger value="notpaid">
+                {overdue ? "Overdue" : "Not paid"} ({find(notPaid).length})
+              </TabsTrigger>
+              <TabsTrigger value="paid">Paid ({find(paid).length})</TabsTrigger>
+              <TabsTrigger value="partial">Part payment ({find(partial).length})</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="notpaid" className="mt-5">
-            <MemberList
-              members={notPaid}
-              tone={overdue ? "bad" : "muted"}
-              action={(m) => (
-                <>
-                  <RemindButton
-                    phone={m.phone}
-                    memberName={m.name}
-                    orgName={org?.name ?? "your association"}
-                    what={`${due.data!.name} (${periodLabel})`}
-                    amount={expected}
-                  />
-                  {isAdmin && (
-                    <Button size="sm" onClick={() => setPaying(m)}>
-                      Mark paid
-                    </Button>
-                  )}
-                </>
-              )}
-              note={() => (overdue ? "Overdue" : "Not paid")}
-            />
-          </TabsContent>
+            <TabsContent value="notpaid" className="mt-5">
+              <MemberList
+                members={find(notPaid)}
+                tone={overdue ? "bad" : "muted"}
+                action={(m) => (
+                  <>
+                    <RemindButton
+                      phone={m.phone}
+                      memberName={m.name}
+                      orgName={org?.name ?? "your association"}
+                      what={`${due.data!.name} (${periodLabel})`}
+                      amount={expected}
+                    />
+                    {isAdmin && (
+                      <Button size="sm" onClick={() => setPaying(m)}>
+                        Mark paid
+                      </Button>
+                    )}
+                  </>
+                )}
+                note={() => (overdue ? "Overdue" : "Not paid")}
+              />
+            </TabsContent>
 
-          <TabsContent value="paid" className="mt-5">
-            <MemberList
-              members={paid}
-              tone="good"
-              note={(m) => naira(paidByMember.get(m.id) ?? 0)}
-              action={() => <Check className="size-5 text-success" />}
-            />
-          </TabsContent>
+            <TabsContent value="paid" className="mt-5">
+              <MemberList
+                members={find(paid)}
+                tone="good"
+                note={(m) => naira(paidByMember.get(m.id) ?? 0)}
+                action={() => <Check className="size-5 text-success" />}
+              />
+            </TabsContent>
 
-          <TabsContent value="partial" className="mt-5">
-            <MemberList
-              members={partial}
-              tone="muted"
-              note={(m) => `${naira(paidByMember.get(m.id) ?? 0)} of ${naira(expected)}`}
-              action={(m) => (
-                <>
-                  <RemindButton
-                    phone={m.phone}
-                    memberName={m.name}
-                    orgName={org?.name ?? "your association"}
-                    what={`${due.data!.name} (${periodLabel})`}
-                    amount={Math.max(expected - (paidByMember.get(m.id) ?? 0), 0)}
-                  />
-                  {isAdmin && (
-                    <Button size="sm" variant="outline" onClick={() => setPaying(m)}>
-                      Add payment
-                    </Button>
-                  )}
-                </>
-              )}
-            />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="partial" className="mt-5">
+              <MemberList
+                members={find(partial)}
+                tone="muted"
+                note={(m) => `${naira(paidByMember.get(m.id) ?? 0)} of ${naira(expected)}`}
+                action={(m) => (
+                  <>
+                    <RemindButton
+                      phone={m.phone}
+                      memberName={m.name}
+                      orgName={org?.name ?? "your association"}
+                      what={`${due.data!.name} (${periodLabel})`}
+                      amount={Math.max(expected - (paidByMember.get(m.id) ?? 0), 0)}
+                    />
+                    {isAdmin && (
+                      <Button size="sm" variant="outline" onClick={() => setPaying(m)}>
+                        Add payment
+                      </Button>
+                    )}
+                  </>
+                )}
+              />
+            </TabsContent>
+          </Tabs>
+        </div>
       )}
 
       <Dialog open={!!paying} onOpenChange={(o) => !o && setPaying(null)}>

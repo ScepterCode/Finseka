@@ -14,6 +14,8 @@ import { methodShort, type PayMethod } from "@/lib/methods";
 import { EmptyState, PageHeader, StatCard } from "@/components/page-parts";
 import { MethodSelect } from "@/components/method-select";
 import { RemindButton } from "@/components/remind-button";
+import { SearchBox } from "@/components/search-box";
+import { matchesPerson } from "@/lib/search";
 import { ContributionPeopleDialog } from "@/components/contribution-people-dialog";
 import { ConfirmButton, ConfirmDialog } from "@/components/confirm";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +60,7 @@ function ContributionDetail() {
   const qc = useQueryClient();
   const [paying, setPaying] = useState<Person | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  const [search, setSearch] = useState("");
   const [addingExpense, setAddingExpense] = useState(false);
 
   const contribution = useQuery({
@@ -299,12 +302,14 @@ function ContributionDetail() {
   const budget = Number(c.budget_amount ?? 0);
   const committee = (c.committee ?? []) as string[];
 
-  const shown = rows.filter((r) =>
-    filter === "all"
-      ? true
-      : filter === "paid"
-        ? r.status === "paid" || r.status === "gave"
-        : r.status === filter,
+  const shown = rows.filter(
+    (r) =>
+      matchesPerson(search, r.person.name, r.person.phone) &&
+      (filter === "all"
+        ? true
+        : filter === "paid"
+          ? r.status === "paid" || r.status === "gave"
+          : r.status === filter),
   );
 
   const total = Math.max(all.length, 1);
@@ -419,6 +424,7 @@ function ContributionDetail() {
               }}
             />
           )}
+          <SearchBox value={search} onChange={setSearch} className="w-full sm:w-64" />
           <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
             <TabsList>
               <TabsTrigger value="all">All</TabsTrigger>
