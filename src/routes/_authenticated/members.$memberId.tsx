@@ -20,6 +20,9 @@ import { PageHeader, StatCard, EmptyState } from "@/components/page-parts";
 import { TagPicker } from "@/routes/_authenticated/members.index";
 import { ReasonDialog } from "@/components/reason-dialog";
 import { RemindButton } from "@/components/remind-button";
+import { MemberStatement } from "@/components/member-statement";
+import { MemberPaymentDialog } from "@/components/member-payment-dialog";
+import { buildStatement } from "@/lib/statement";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -329,6 +332,8 @@ function MemberProfile() {
   const totalOwing = duesOwing + contribOwing;
   const tags = (member.data.tags as string[] | null) ?? [];
 
+  const statement = buildStatement(lines, allDuePayments, allContribPayments);
+
   const history = [
     ...allDuePayments.map((p) => ({
       id: p.id,
@@ -391,6 +396,13 @@ function MemberProfile() {
               }
               amount={totalOwing}
             />
+            {isAdmin && totalOwing > 0 && (
+              <MemberPaymentDialog
+                memberId={memberId}
+                memberName={member.data.name}
+                owing={totalOwing}
+              />
+            )}
             {isAdmin && (
               <Button
                 variant="outline"
@@ -436,12 +448,23 @@ function MemberProfile() {
         />
       </div>
 
-      <Tabs defaultValue="dues">
+      <Tabs defaultValue="statement">
         <TabsList className="flex-wrap">
+          <TabsTrigger value="statement">Statement</TabsTrigger>
           <TabsTrigger value="dues">Dues to pay ({dueRows.length})</TabsTrigger>
           <TabsTrigger value="contributions">Contributions ({contribRows.length})</TabsTrigger>
           <TabsTrigger value="history">Payment history ({history.length})</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="statement" className="mt-5">
+          <MemberStatement
+            entries={statement}
+            owing={totalOwing}
+            memberName={member.data.name}
+            phone={member.data.phone}
+            orgName={org?.name ?? "FinSeka"}
+          />
+        </TabsContent>
 
         <TabsContent value="dues" className="mt-5 space-y-5">
           {dueRows.length === 0 ? (

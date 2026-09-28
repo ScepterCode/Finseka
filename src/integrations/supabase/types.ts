@@ -784,6 +784,18 @@ export type Database = {
         Returns: boolean;
       };
       is_org_admin: { Args: never; Returns: boolean };
+      pay_member_debts: {
+        Args: {
+          _amount: number;
+          _channel: Database["public"]["Enums"]["payment_channel"];
+          _client_ref?: string;
+          _member_id: string;
+          _note?: string;
+          _paid_at: string;
+          _reference?: string;
+        };
+        Returns: Json;
+      };
       post_contribution_expenses: {
         Args: { _contribution_id: string };
         Returns: undefined;
