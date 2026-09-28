@@ -10,9 +10,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAll } from "@/lib/fetch-all";
 import { useAuth } from "@/hooks/useAuth";
 import { naira, shortDate, todayIso } from "@/lib/format";
-import { methodShort, type PayMethod } from "@/lib/methods";
+import { paymentModeText } from "@/lib/methods";
 import { EmptyState, PageHeader, StatCard } from "@/components/page-parts";
-import { MethodSelect } from "@/components/method-select";
+import {
+  PaymentModeFields,
+  defaultPaymentMode,
+  type PaymentMode,
+} from "@/components/method-select";
 import { RemindButton } from "@/components/remind-button";
 import { SearchBox } from "@/components/search-box";
 import { matchesPerson } from "@/lib/search";
@@ -100,7 +104,7 @@ function ContributionDetail() {
       const data = await fetchAll((from, to) =>
         supabase
           .from("contribution_payments")
-          .select("id, member_id, amount, paid_at, note, method")
+          .select("id, member_id, amount, paid_at, note, method, channel, reference")
           .eq("contribution_id", contributionId)
           .is("voided_at", null)
           .order("paid_at", { ascending: false })
@@ -117,7 +121,7 @@ function ContributionDetail() {
       const data = await fetchAll((from, to) =>
         supabase
           .from("contribution_expenses")
-          .select("id, description, amount, method, spent_at")
+          .select("id, description, amount, method, channel, reference, spent_at")
           .eq("contribution_id", contributionId)
           .order("spent_at", { ascending: false })
           .order("id")
@@ -142,7 +146,7 @@ function ContributionDetail() {
       amount: number;
       date: string;
       note: string;
-      method: PayMethod;
+      method: PaymentMode;
       clientRef: string;
     }) => {
       // client_ref makes a retried save a no-op instead of a second payment.
@@ -154,7 +158,8 @@ function ContributionDetail() {
           amount: i.amount,
           paid_at: i.date,
           note: i.note || null,
-          method: i.method,
+          channel: i.method.channel,
+          reference: i.method.reference || null,
           client_ref: i.clientRef,
         },
         { onConflict: "client_ref", ignoreDuplicates: true },
@@ -200,7 +205,7 @@ function ContributionDetail() {
       description: string;
       amount: number;
       date: string;
-      method: PayMethod;
+      method: PaymentMode;
     }) => {
       const { error } = await supabase.from("contribution_expenses").insert({
         org_id: orgId!,
@@ -208,7 +213,8 @@ function ContributionDetail() {
         description: i.description,
         amount: i.amount,
         spent_at: i.date,
-        method: i.method,
+        channel: i.method.channel,
+        reference: i.method.reference || null,
       });
       if (error) throw error;
     },
@@ -286,6 +292,8 @@ function ContributionDetail() {
       balance: c.mandatory ? Math.max(expected - paid, 0) : 0,
       date: last?.paid_at ?? null,
       method: last?.method ?? null,
+      channel: last?.channel ?? null,
+      reference: last?.reference ?? null,
       status,
     };
   });
@@ -486,7 +494,13 @@ function ContributionDetail() {
                       {r.date ? shortDate(r.date) : "—"}
                     </td>
                     <td className="px-4 py-3">
-                      {r.method ? <Badge variant="outline">{methodShort(r.method)}</Badge> : "—"}
+                      {r.method ? (
+                        <Badge variant="outline">
+                          {paymentModeText(r.channel, r.reference, r.method)}
+                        </Badge>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     {isAdmin && !c.closed && (
                       <td className="px-4 py-3 text-right">
@@ -551,7 +565,7 @@ function ContributionDetail() {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{e.description}</span>
                   <span className="text-xs text-muted-foreground">
-                    {shortDate(e.spent_at)} · {methodShort(e.method)}
+                    {shortDate(e.spent_at)} · {paymentModeText(e.channel, e.reference, e.method)}
                   </span>
                 </span>
                 <span className="font-semibold text-destructive">{naira(Number(e.amount))}</span>
@@ -671,14 +685,14 @@ function PayForm({
     amount: number,
     date: string,
     note: string,
-    method: PayMethod,
+    method: PaymentMode,
     clientRef: string,
   ) => void;
 }) {
   const [amount, setAmount] = useState(String(defaultAmount || ""));
   const [date, setDate] = useState(todayIso());
   const [note, setNote] = useState("");
-  const [method, setMethod] = useState<PayMethod>("cash");
+  const [method, setMethod] = useState<PaymentMode>(defaultPaymentMode);
   const [confirm, setConfirm] = useState(false);
   const [clientRef] = useState(() => crypto.randomUUID());
 
@@ -701,7 +715,7 @@ function PayForm({
           onChange={(e) => setAmount(e.target.value)}
         />
       </div>
-      <MethodSelect value={method} onChange={setMethod} />
+      <PaymentModeFields value={method} onChange={setMethod} />
       <div className="space-y-2">
         <Label htmlFor="cp-date">Date paid</Label>
         <Input id="cp-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -717,7 +731,7 @@ function PayForm({
         open={confirm}
         onOpenChange={setConfirm}
         title="Confirm payment?"
-        description={`${name} paid ${naira(Number(amount || 0))} by ${method === "cash" ? "cash" : "bank transfer"}.`}
+        description={`${name} paid ${naira(Number(amount || 0))} by ${paymentModeText(method.channel, method.reference).toLowerCase()}.`}
         confirmLabel="Yes, record it"
         onConfirm={() => onSubmit(Number(amount || 0), date, note, method, clientRef)}
       />
@@ -811,12 +825,12 @@ function ExpenseForm({
   onSubmit,
 }: {
   pending: boolean;
-  onSubmit: (v: { description: string; amount: number; date: string; method: PayMethod }) => void;
+  onSubmit: (v: { description: string; amount: number; date: string; method: PaymentMode }) => void;
 }) {
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(todayIso());
-  const [method, setMethod] = useState<PayMethod>("cash");
+  const [method, setMethod] = useState<PaymentMode>(defaultPaymentMode);
   return (
     <form
       className="space-y-4"
@@ -846,7 +860,7 @@ function ExpenseForm({
           onChange={(e) => setAmount(e.target.value)}
         />
       </div>
-      <MethodSelect value={method} onChange={setMethod} label="Paid by cash or transfer?" />
+      <PaymentModeFields value={method} onChange={setMethod} label="How was it paid for?" />
       <div className="space-y-2">
         <Label htmlFor="ce-date">Date</Label>
         <Input id="ce-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />

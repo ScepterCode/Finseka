@@ -12,8 +12,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { localIso, naira, shortDate, todayIso } from "@/lib/format";
 import { fetchLedgerTotals } from "@/lib/totals";
 import { downloadCsv, fileSlug, toCsv } from "@/lib/csv";
-import { methodShort, type PayMethod } from "@/lib/methods";
-import { MethodSelect } from "@/components/method-select";
+import { channelLabel, paymentModeText } from "@/lib/methods";
+import {
+  PaymentModeFields,
+  defaultPaymentMode,
+  type PaymentMode,
+} from "@/components/method-select";
 import { ReasonDialog } from "@/components/reason-dialog";
 import { SearchBox } from "@/components/search-box";
 import { matchesPerson } from "@/lib/search";
@@ -74,6 +78,8 @@ type ExportRow = {
   description: string | null;
   amount: number;
   method: string;
+  channel: string | null;
+  reference: string | null;
   reverses_id: string | null;
   reversed_at: string | null;
   members: { name: string } | null;
@@ -119,7 +125,7 @@ function LedgerPage() {
       const { data, error } = await supabase
         .from("ledger_entries")
         .select(
-          "id, kind, label, description, amount, entry_date, method, source_table, source_id, member_id, reverses_id, reversed_at, reverse_reason, members(name)",
+          "id, kind, label, description, amount, entry_date, method, channel, reference, source_table, source_id, member_id, reverses_id, reversed_at, reverse_reason, members(name)",
         )
         .gte("entry_date", fromDate)
         .lte("entry_date", toDate)
@@ -195,7 +201,7 @@ function LedgerPage() {
         const { data, error } = await supabase
           .from("ledger_entries")
           .select(
-            "entry_date, kind, label, description, amount, method, reverses_id, reversed_at, members(name)",
+            "entry_date, kind, label, description, amount, method, channel, reference, reverses_id, reversed_at, members(name)",
           )
           .gte("entry_date", fromDate)
           .lte("entry_date", toDate)
@@ -213,6 +219,8 @@ function LedgerPage() {
         { header: "What", value: (r) => r.label },
         { header: "Details", value: (r) => r.description },
         { header: "Cash or bank", value: (r) => (r.method === "transfer" ? "Bank" : "Cash") },
+        { header: "How", value: (r) => channelLabel(r.channel, r.method) },
+        { header: "Reference", value: (r) => r.reference },
         { header: "Member", value: (r) => r.members?.name ?? "" },
         // Effect on the purse: money in is positive, money out and reversals negative.
         {
@@ -379,7 +387,7 @@ function LedgerPage() {
                     {e.description || e.label}
                   </span>
                   <span className="block truncate text-xs text-muted-foreground">
-                    {shortDate(e.entry_date)} · {methodShort(e.method)}
+                    {shortDate(e.entry_date)} · {paymentModeText(e.channel, e.reference, e.method)}
                     {(e.members as { name: string } | null)?.name
                       ? ` · ${(e.members as { name: string }).name}`
                       : ""}
@@ -473,7 +481,7 @@ function AddEntryDialog({
   const [label, setLabel] = useState("Expense");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
-  const [method, setMethod] = useState<PayMethod>("cash");
+  const [method, setMethod] = useState<PaymentMode>(defaultPaymentMode);
   const [date, setDate] = useState(todayIso());
 
   const save = useMutation({
@@ -485,7 +493,8 @@ function AddEntryDialog({
         description: description || null,
         amount: Number(amount || 0),
         entry_date: date,
-        method,
+        channel: method.channel,
+        reference: method.reference || null,
         member_id: memberId === "none" ? null : memberId,
       });
       if (error) throw error;
@@ -567,7 +576,7 @@ function AddEntryDialog({
               onChange={(e) => setAmount(e.target.value)}
             />
           </div>
-          <MethodSelect value={method} onChange={setMethod} />
+          <PaymentModeFields value={method} onChange={setMethod} />
           <div className="space-y-2">
             <Label>Which member is this about? (optional)</Label>
             {members.length > 10 && (

@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchAll } from "@/lib/fetch-all";
 import { useAuth } from "@/hooks/useAuth";
 import { naira, shortDate, initials } from "@/lib/format";
-import { methodShort } from "@/lib/methods";
+import { paymentModeText } from "@/lib/methods";
 import { type Frequency } from "@/lib/periods";
 
 /** Periods shown per due on the profile; the totals always include every period. */
@@ -95,7 +95,7 @@ function MemberProfile() {
         supabase
           .from("due_payments")
           .select(
-            "id, due_id, amount, paid_at, period_label, method, note, voided_at, void_reason, dues(name)",
+            "id, due_id, amount, paid_at, period_label, method, channel, reference, note, voided_at, void_reason, dues(name)",
           )
           .eq("member_id", memberId)
           .order("paid_at", { ascending: false })
@@ -148,7 +148,7 @@ function MemberProfile() {
         supabase
           .from("contribution_payments")
           .select(
-            "id, contribution_id, amount, paid_at, method, note, voided_at, void_reason, contributions(name)",
+            "id, contribution_id, amount, paid_at, method, channel, reference, note, voided_at, void_reason, contributions(name)",
           )
           .eq("member_id", memberId)
           .order("paid_at", { ascending: false })
@@ -333,7 +333,7 @@ function MemberProfile() {
     ...allDuePayments.map((p) => ({
       id: p.id,
       label: (p.dues as { name: string } | null)?.name ?? "Dues",
-      detail: `${p.period_label} · ${methodShort(p.method)}`,
+      detail: `${p.period_label} · ${paymentModeText(p.channel, p.reference, p.method)}`,
       amount: Number(p.amount),
       date: p.paid_at,
       kind: "Dues",
@@ -344,7 +344,7 @@ function MemberProfile() {
     ...allContribPayments.map((p) => ({
       id: p.id,
       label: (p.contributions as { name: string } | null)?.name ?? "Contribution",
-      detail: `${methodShort(p.method)}${p.note ? ` · ${p.note}` : ""}`,
+      detail: `${paymentModeText(p.channel, p.reference, p.method)}${p.note ? ` · ${p.note}` : ""}`,
       amount: Number(p.amount),
       date: p.paid_at,
       kind: "Contribution",

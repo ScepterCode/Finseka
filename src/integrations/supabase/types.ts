@@ -81,6 +81,8 @@ export type Database = {
           description: string;
           id: string;
           method: Database["public"]["Enums"]["payment_method"];
+          channel: Database["public"]["Enums"]["payment_channel"];
+          reference: string | null;
           org_id: string;
           spent_at: string;
           updated_at: string;
@@ -92,6 +94,8 @@ export type Database = {
           description: string;
           id?: string;
           method?: Database["public"]["Enums"]["payment_method"];
+          channel?: Database["public"]["Enums"]["payment_channel"];
+          reference?: string | null;
           org_id: string;
           spent_at?: string;
           updated_at?: string;
@@ -103,6 +107,8 @@ export type Database = {
           description?: string;
           id?: string;
           method?: Database["public"]["Enums"]["payment_method"];
+          channel?: Database["public"]["Enums"]["payment_channel"];
+          reference?: string | null;
           org_id?: string;
           spent_at?: string;
           updated_at?: string;
@@ -175,6 +181,8 @@ export type Database = {
           id: string;
           member_id: string;
           method: Database["public"]["Enums"]["payment_method"];
+          channel: Database["public"]["Enums"]["payment_channel"];
+          reference: string | null;
           client_ref: string | null;
           note: string | null;
           void_reason: string | null;
@@ -190,6 +198,8 @@ export type Database = {
           id?: string;
           member_id: string;
           method?: Database["public"]["Enums"]["payment_method"];
+          channel?: Database["public"]["Enums"]["payment_channel"];
+          reference?: string | null;
           client_ref?: string | null;
           note?: string | null;
           void_reason?: string | null;
@@ -205,6 +215,8 @@ export type Database = {
           id?: string;
           member_id?: string;
           method?: Database["public"]["Enums"]["payment_method"];
+          channel?: Database["public"]["Enums"]["payment_channel"];
+          reference?: string | null;
           client_ref?: string | null;
           note?: string | null;
           void_reason?: string | null;
@@ -301,6 +313,8 @@ export type Database = {
           id: string;
           member_id: string;
           method: Database["public"]["Enums"]["payment_method"];
+          channel: Database["public"]["Enums"]["payment_channel"];
+          reference: string | null;
           client_ref: string | null;
           note: string | null;
           void_reason: string | null;
@@ -318,6 +332,8 @@ export type Database = {
           id?: string;
           member_id: string;
           method?: Database["public"]["Enums"]["payment_method"];
+          channel?: Database["public"]["Enums"]["payment_channel"];
+          reference?: string | null;
           client_ref?: string | null;
           note?: string | null;
           void_reason?: string | null;
@@ -335,6 +351,8 @@ export type Database = {
           id?: string;
           member_id?: string;
           method?: Database["public"]["Enums"]["payment_method"];
+          channel?: Database["public"]["Enums"]["payment_channel"];
+          reference?: string | null;
           client_ref?: string | null;
           note?: string | null;
           void_reason?: string | null;
@@ -460,6 +478,8 @@ export type Database = {
           label: string;
           member_id: string | null;
           method: Database["public"]["Enums"]["payment_method"];
+          channel: Database["public"]["Enums"]["payment_channel"];
+          reference: string | null;
           org_id: string;
           source_id: string | null;
           source_table: string | null;
@@ -478,6 +498,8 @@ export type Database = {
           label: string;
           member_id?: string | null;
           method?: Database["public"]["Enums"]["payment_method"];
+          channel?: Database["public"]["Enums"]["payment_channel"];
+          reference?: string | null;
           org_id: string;
           source_id?: string | null;
           source_table?: string | null;
@@ -496,6 +518,8 @@ export type Database = {
           label?: string;
           member_id?: string | null;
           method?: Database["public"]["Enums"]["payment_method"];
+          channel?: Database["public"]["Enums"]["payment_channel"];
+          reference?: string | null;
           org_id?: string;
           source_id?: string | null;
           source_table?: string | null;
@@ -682,6 +706,7 @@ export type Database = {
         };
         Returns: undefined;
       };
+      channel_totals: { Args: { _from?: string; _to?: string }; Returns: Json };
       contribution_progress: { Args: { _open_only?: boolean }; Returns: Json };
       current_org_id: { Args: never; Returns: string };
       dashboard_summary: { Args: never; Returns: Json };
@@ -771,6 +796,8 @@ export type Database = {
       due_frequency: "daily" | "weekly" | "monthly" | "yearly" | "custom";
       ledger_kind: "income" | "expense";
       payment_method: "cash" | "transfer";
+      payment_channel:
+        "cash" | "bank_transfer" | "pos" | "ussd" | "mobile_money" | "cheque" | "other";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -896,6 +923,7 @@ export const Constants = {
       due_frequency: ["daily", "weekly", "monthly", "yearly", "custom"],
       ledger_kind: ["income", "expense"],
       payment_method: ["cash", "transfer"],
+      payment_channel: ["cash", "bank_transfer", "pos", "ussd", "mobile_money", "cheque", "other"],
     },
   },
 } as const;

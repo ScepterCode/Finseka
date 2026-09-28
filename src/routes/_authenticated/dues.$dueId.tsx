@@ -9,8 +9,11 @@ import { fetchAll } from "@/lib/fetch-all";
 import { useAuth } from "@/hooks/useAuth";
 import { friendlyError } from "@/lib/errors";
 import { initials, naira, shortDate, todayIso } from "@/lib/format";
-import { type PayMethod } from "@/lib/methods";
-import { MethodSelect } from "@/components/method-select";
+import {
+  PaymentModeFields,
+  defaultPaymentMode,
+  type PaymentMode,
+} from "@/components/method-select";
 import { RemindButton } from "@/components/remind-button";
 import { SearchBox } from "@/components/search-box";
 import { matchesPerson } from "@/lib/search";
@@ -135,7 +138,7 @@ function DueDetail() {
       amount: number;
       date: string;
       note: string;
-      method: PayMethod;
+      method: PaymentMode;
       clientRef: string;
     }) => {
       // client_ref makes a retried save a no-op instead of a second payment.
@@ -149,7 +152,8 @@ function DueDetail() {
           amount: input.amount,
           paid_at: input.date,
           note: input.note || null,
-          method: input.method,
+          channel: input.method.channel,
+          reference: input.method.reference || null,
           client_ref: input.clientRef,
         },
         { onConflict: "client_ref", ignoreDuplicates: true },
@@ -591,14 +595,14 @@ function PaymentForm({
     amount: number;
     date: string;
     note: string;
-    method: PayMethod;
+    method: PaymentMode;
     clientRef: string;
   }) => void;
 }) {
   const [amount, setAmount] = useState(String(defaultAmount || ""));
   const [date, setDate] = useState(todayIso());
   const [note, setNote] = useState("");
-  const [method, setMethod] = useState<PayMethod>("cash");
+  const [method, setMethod] = useState<PaymentMode>(defaultPaymentMode);
   const [clientRef] = useState(() => crypto.randomUUID());
 
   return (
@@ -620,7 +624,7 @@ function PaymentForm({
           onChange={(e) => setAmount(e.target.value)}
         />
       </div>
-      <MethodSelect value={method} onChange={setMethod} />
+      <PaymentModeFields value={method} onChange={setMethod} />
       <div className="space-y-2">
         <Label htmlFor="p-date">Date paid</Label>
         <Input id="p-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
