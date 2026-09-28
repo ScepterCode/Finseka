@@ -135,7 +135,7 @@ function Dashboard() {
               Set your dues and add members to see this.
             </p>
           )}
-          <Button asChild variant="ghost" size="sm" className="mt-4 gap-2 px-0">
+          <Button asChild variant="outline" size="sm" className="mt-4 gap-2">
             <Link to="/dues">
               Go to Dues <ArrowRight className="size-4" />
             </Link>
@@ -156,7 +156,7 @@ function Dashboard() {
                     <Link
                       to="/contributions/$contributionId"
                       params={{ contributionId: c.id }}
-                      className="font-medium hover:underline"
+                      className="link"
                     >
                       {c.name}
                     </Link>
@@ -176,7 +176,7 @@ function Dashboard() {
               ))}
             </ul>
           )}
-          <Button asChild variant="ghost" size="sm" className="mt-4 gap-2 px-0">
+          <Button asChild variant="outline" size="sm" className="mt-4 gap-2">
             <Link to="/contributions">
               Go to Contributions <ArrowRight className="size-4" />
             </Link>

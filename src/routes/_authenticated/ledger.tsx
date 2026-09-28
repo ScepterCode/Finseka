@@ -311,7 +311,7 @@ function LedgerPage() {
 
       <div className="space-y-4">
         <Tabs value={range} onValueChange={setRange}>
-          <TabsList className="flex-wrap">
+          <TabsList>
             {ranges.map((r) => (
               <TabsTrigger key={r.key} value={r.key}>
                 {r.label}
@@ -409,8 +409,8 @@ function LedgerPage() {
                 {isAdmin && !isReversal && !isReversed && (
                   <Button
                     size="sm"
-                    variant="ghost"
-                    className="text-destructive"
+                    variant="outline"
+                    className="border-destructive/40 text-destructive"
                     onClick={() =>
                       setUndoing({
                         id: e.id,

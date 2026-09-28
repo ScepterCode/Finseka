@@ -206,7 +206,7 @@ function ReportsPage() {
           </div>
 
           <Tabs defaultValue="statement">
-            <TabsList className="flex-wrap">
+            <TabsList>
               <TabsTrigger value="statement">Money in and out</TabsTrigger>
               <TabsTrigger value="defaulters">
                 Who is owing ({report.data.defaulters.length})
@@ -267,8 +267,8 @@ function ReportsPage() {
               {report.data.byLabel.length === 0 ? (
                 <EmptyState title="Nothing in this period" hint="Pick another month or year." />
               ) : (
-                <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
-                  <table className="w-full text-sm">
+                <div className="overflow-x-auto rounded-3xl border border-border bg-card shadow-soft">
+                  <table className="w-full min-w-[32rem] text-sm">
                     <thead className="bg-secondary text-left text-xs uppercase text-muted-foreground">
                       <tr>
                         <th className="px-5 py-3">What</th>
@@ -305,8 +305,8 @@ function ReportsPage() {
               {report.data.defaulters.length === 0 ? (
                 <EmptyState title="Nobody is owing" hint="Everybody is up to date. Well done." />
               ) : (
-                <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
-                  <table className="w-full text-sm">
+                <div className="overflow-x-auto rounded-3xl border border-border bg-card shadow-soft">
+                  <table className="w-full min-w-[32rem] text-sm">
                     <thead className="bg-secondary text-left text-xs uppercase text-muted-foreground">
                       <tr>
                         <th className="px-5 py-3">Member</th>
@@ -339,8 +339,8 @@ function ReportsPage() {
               {report.data.reconciliation.length === 0 ? (
                 <EmptyState title="No contributions yet" hint="Create one and it will show here." />
               ) : (
-                <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
-                  <table className="w-full text-sm">
+                <div className="overflow-x-auto rounded-3xl border border-border bg-card shadow-soft">
+                  <table className="w-full min-w-[32rem] text-sm">
                     <thead className="bg-secondary text-left text-xs uppercase text-muted-foreground">
                       <tr>
                         <th className="px-5 py-3">Contribution</th>

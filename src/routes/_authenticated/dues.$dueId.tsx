@@ -311,7 +311,7 @@ function DueDetail() {
 
   return (
     <div className="space-y-8">
-      <Button asChild variant="ghost" size="sm" className="-ml-2 gap-2">
+      <Button asChild variant="outline" size="sm" className="gap-2">
         <Link to="/dues">
           <ArrowLeft className="size-4" /> All dues
         </Link>
@@ -748,7 +748,7 @@ function MemberList({
   return (
     <ul className="divide-y divide-border overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
       {members.map((m) => (
-        <li key={m.id} className="flex items-center gap-4 px-5 py-4">
+        <li key={m.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4">
           <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
             {initials(m.name)}
           </span>
@@ -756,7 +756,7 @@ function MemberList({
             <Link
               to="/members/$memberId"
               params={{ memberId: m.id }}
-              className="block truncate font-medium hover:underline"
+              className="link block truncate"
             >
               {m.name}
             </Link>

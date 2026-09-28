@@ -11,8 +11,10 @@ export function PageHeader({
 }) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
+      <div className="min-w-0">
+        <h1 className="break-words font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+          {title}
+        </h1>
         {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
       </div>
       {action}
@@ -57,9 +59,13 @@ export function StatCard({
   }[tone];
 
   return (
-    <div className="rounded-3xl border border-border bg-card p-6 shadow-soft">
+    <div className="min-w-0 rounded-3xl border border-border bg-card p-5 shadow-soft sm:p-6">
       <p className="text-sm font-medium text-muted-foreground">{label}</p>
-      <p className={`mt-2 font-display text-2xl font-semibold sm:text-3xl ${toneClass}`}>{value}</p>
+      <p
+        className={`mt-2 break-words font-display text-2xl font-semibold sm:text-3xl ${toneClass}`}
+      >
+        {value}
+      </p>
       {hint && <p className="mt-1.5 text-xs text-muted-foreground">{hint}</p>}
     </div>
   );

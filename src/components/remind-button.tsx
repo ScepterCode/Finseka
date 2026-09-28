@@ -25,8 +25,8 @@ export function RemindButton({
     <Button
       asChild
       size={size}
-      variant="ghost"
-      className="print-hide gap-1.5 text-success hover:text-success"
+      variant="outline"
+      className="print-hide gap-1.5 border-success/40 text-success hover:text-success"
       title={
         hasNumber
           ? `Send ${memberName} a reminder on WhatsApp`

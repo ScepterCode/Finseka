@@ -302,7 +302,7 @@ function SettingsPage() {
         ) : (
           <ul className="divide-y divide-border overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
             {(team.data ?? []).map((p) => (
-              <li key={p.id} className="flex items-center gap-4 px-5 py-4">
+              <li key={p.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4">
                 <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
                   {initials(p.full_name || "?")}
                 </span>
@@ -339,8 +339,9 @@ function SettingsPage() {
                 )}
                 {isAdmin && p.id !== userId && (
                   <ConfirmButton
-                    variant="ghost"
+                    variant="outline"
                     size="icon"
+                    className="border-destructive/40"
                     destructive
                     title={`Remove ${p.full_name || "this person"} from your team?`}
                     description="They lose access to your records straight away. Their login is kept, so you can invite them back later."

@@ -156,8 +156,8 @@ export function YearEndReport() {
             />
           </div>
 
-          <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-3xl border border-border bg-card shadow-soft">
+            <table className="w-full min-w-[32rem] text-sm">
               <thead className="bg-secondary text-left text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="px-5 py-3">What</th>

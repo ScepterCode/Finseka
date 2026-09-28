@@ -354,7 +354,7 @@ function NewContributionDialog({
               <Label>Who is contributing? ({picked.length} picked)</Label>
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 onClick={() => setPicked(allPicked ? [] : members.map((m) => m.id))}
               >

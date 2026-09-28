@@ -361,7 +361,7 @@ function MemberProfile() {
 
   return (
     <div className="space-y-8">
-      <Button asChild variant="ghost" size="sm" className="-ml-2 gap-2">
+      <Button asChild variant="outline" size="sm" className="gap-2">
         <Link to="/members">
           <ArrowLeft className="size-4" /> All members
         </Link>
@@ -449,7 +449,7 @@ function MemberProfile() {
       </div>
 
       <Tabs defaultValue="statement">
-        <TabsList className="flex-wrap">
+        <TabsList>
           <TabsTrigger value="statement">Statement</TabsTrigger>
           <TabsTrigger value="dues">Dues to pay ({dueRows.length})</TabsTrigger>
           <TabsTrigger value="contributions">Contributions ({contribRows.length})</TabsTrigger>
@@ -498,35 +498,37 @@ function MemberProfile() {
                     </Badge>
                   )}
                 </div>
-                <table className="w-full text-sm">
-                  <thead className="bg-secondary text-left text-xs uppercase text-muted-foreground">
-                    <tr>
-                      <th className="px-5 py-2.5">Period</th>
-                      <th className="px-5 py-2.5">Status</th>
-                      <th className="px-5 py-2.5 text-right">Paid</th>
-                      <th className="px-5 py-2.5 text-right">Still owing</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {d.periodRows.slice(0, PERIODS_SHOWN).map((p) => (
-                      <tr key={p.period}>
-                        <td className="px-5 py-2.5 font-medium">{p.period}</td>
-                        <td className="px-5 py-2.5">
-                          <StatusPill status={p.status} />
-                        </td>
-                        <td className="px-5 py-2.5 text-right">{p.paid ? naira(p.paid) : "—"}</td>
-                        <td className="px-5 py-2.5 text-right text-destructive">
-                          {p.short + p.latePenalty > 0 ? naira(p.short + p.latePenalty) : "—"}
-                          {p.latePenalty > 0 && (
-                            <span className="block text-xs text-muted-foreground">
-                              includes {naira(p.latePenalty)} late charge
-                            </span>
-                          )}
-                        </td>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[28rem] text-sm">
+                    <thead className="bg-secondary text-left text-xs uppercase text-muted-foreground">
+                      <tr>
+                        <th className="px-5 py-2.5">Period</th>
+                        <th className="px-5 py-2.5">Status</th>
+                        <th className="px-5 py-2.5 text-right">Paid</th>
+                        <th className="px-5 py-2.5 text-right">Still owing</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {d.periodRows.slice(0, PERIODS_SHOWN).map((p) => (
+                        <tr key={p.period}>
+                          <td className="px-5 py-2.5 font-medium">{p.period}</td>
+                          <td className="px-5 py-2.5">
+                            <StatusPill status={p.status} />
+                          </td>
+                          <td className="px-5 py-2.5 text-right">{p.paid ? naira(p.paid) : "—"}</td>
+                          <td className="px-5 py-2.5 text-right text-destructive">
+                            {p.short + p.latePenalty > 0 ? naira(p.short + p.latePenalty) : "—"}
+                            {p.latePenalty > 0 && (
+                              <span className="block text-xs text-muted-foreground">
+                                includes {naira(p.latePenalty)} late charge
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
                 {d.periodRows.length > PERIODS_SHOWN && (
                   <p className="border-t border-border px-5 py-2.5 text-xs text-muted-foreground">
                     Showing the latest {PERIODS_SHOWN} of {d.periodRows.length} periods. The amount
@@ -534,7 +536,7 @@ function MemberProfile() {
                   </p>
                 )}
                 <div className="border-t border-border px-5 py-3">
-                  <Button asChild variant="ghost" size="sm" className="px-0">
+                  <Button asChild variant="outline" size="sm">
                     <Link to="/dues/$dueId" params={{ dueId: d.id }}>
                       Open this due
                     </Link>
@@ -552,8 +554,8 @@ function MemberProfile() {
               hint="Once this person is added to a contribution it shows here."
             />
           ) : (
-            <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto rounded-3xl border border-border bg-card shadow-soft">
+              <table className="w-full min-w-[32rem] text-sm">
                 <thead className="bg-secondary text-left text-xs uppercase text-muted-foreground">
                   <tr>
                     <th className="px-5 py-3">Contribution</th>
@@ -570,7 +572,7 @@ function MemberProfile() {
                         <Link
                           to="/contributions/$contributionId"
                           params={{ contributionId: c.id }}
-                          className="hover:underline"
+                          className="link"
                         >
                           {c.name}
                         </Link>
@@ -602,7 +604,10 @@ function MemberProfile() {
           ) : (
             <ul className="divide-y divide-border overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
               {history.map((h) => (
-                <li key={h.kind + h.id} className="flex items-center gap-4 px-5 py-4">
+                <li
+                  key={h.kind + h.id}
+                  className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4"
+                >
                   <span className="grid size-10 shrink-0 place-items-center rounded-full bg-secondary text-xs font-semibold text-muted-foreground">
                     {initials(h.label)}
                   </span>
@@ -630,8 +635,8 @@ function MemberProfile() {
                   {isAdmin && !h.voided && (
                     <Button
                       size="sm"
-                      variant="ghost"
-                      className="text-destructive"
+                      variant="outline"
+                      className="border-destructive/40 text-destructive"
                       onClick={() =>
                         setCancelling({
                           kind: h.payKind,

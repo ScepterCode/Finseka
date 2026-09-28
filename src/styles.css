@@ -229,3 +229,15 @@
   --viz-axis: #a39c93;
   --viz-surface: #281c1a;
 }
+
+/* Text links look like links without hover (phones have no hover). */
+.link {
+  color: var(--primary);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, var(--primary) 40%, transparent);
+  text-underline-offset: 3px;
+}
+.link:hover {
+  text-decoration-color: var(--primary);
+}

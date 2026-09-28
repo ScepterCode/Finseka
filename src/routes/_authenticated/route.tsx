@@ -79,7 +79,7 @@ function AuthenticatedLayout() {
               {isAdmin ? "Admin" : "Viewer"}
             </Badge>
             <ConfirmButton
-              variant="ghost"
+              variant="outline"
               size="sm"
               className="ml-auto gap-2"
               title="Sign out of FinSeka?"

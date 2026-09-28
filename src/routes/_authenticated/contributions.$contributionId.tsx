@@ -321,7 +321,7 @@ function ContributionDetail() {
 
   return (
     <div className="space-y-8">
-      <Button asChild variant="ghost" size="sm" className="-ml-2 gap-2">
+      <Button asChild variant="outline" size="sm" className="gap-2">
         <Link to="/contributions">
           <ArrowLeft className="size-4" /> All contributions
         </Link>
@@ -462,7 +462,7 @@ function ContributionDetail() {
                       <Link
                         to="/members/$memberId"
                         params={{ memberId: r.person.id }}
-                        className="font-medium hover:underline"
+                        className="link"
                       >
                         {r.person.name}
                       </Link>
@@ -558,7 +558,10 @@ function ContributionDetail() {
         {(expenses.data ?? []).length > 0 && (
           <ul className="divide-y divide-border overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
             {(expenses.data ?? []).map((e) => (
-              <li key={e.id} className="flex items-center gap-3 px-5 py-3 text-sm">
+              <li
+                key={e.id}
+                className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3 text-sm"
+              >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{e.description}</span>
                   <span className="text-xs text-muted-foreground">
@@ -569,7 +572,8 @@ function ContributionDetail() {
                 {isAdmin && !c.expenses_posted && (
                   <ConfirmButton
                     size="icon"
-                    variant="ghost"
+                    variant="outline"
+                    className="border-destructive/40"
                     title="Remove this spending?"
                     description={`${e.description} — ${naira(Number(e.amount))}`}
                     confirmLabel="Yes, remove"

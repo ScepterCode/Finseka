@@ -100,7 +100,7 @@ export function OpeningBalanceCard() {
           </Button>
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             disabled={save.isPending}
             onClick={() => save.mutate({ cash: 0, bank: 0 })}
           >

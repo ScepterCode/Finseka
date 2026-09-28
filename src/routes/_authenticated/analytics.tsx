@@ -214,7 +214,7 @@ function AnalyticsPage() {
                   key={x.id}
                   to="/members/$memberId"
                   params={{ memberId: x.id }}
-                  className="font-medium hover:underline"
+                  className="link"
                 >
                   {x.name}
                 </Link>,
@@ -257,12 +257,12 @@ function SimpleTable({
   empty: string;
 }) {
   return (
-    <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
+    <section className="overflow-x-auto rounded-3xl border border-border bg-card shadow-soft">
       <h2 className="px-5 pt-5 font-display text-lg font-semibold">{title}</h2>
       {rows.length === 0 ? (
         <p className="px-5 py-6 text-sm text-muted-foreground">{empty}</p>
       ) : (
-        <table className="mt-3 w-full text-sm">
+        <table className="mt-3 w-full min-w-[28rem] text-sm">
           <thead className="bg-secondary text-left text-xs uppercase text-muted-foreground">
             <tr>
               {headers.map((h, i) => (
