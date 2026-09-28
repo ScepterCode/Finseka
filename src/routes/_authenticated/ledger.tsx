@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDownLeft, ArrowUpRight, Download, Loader2, Plus, Undo2 } from "lucide-react";
+import { Download, Loader2, Plus, Printer } from "lucide-react";
 import { toast } from "sonner";
 
 import { friendlyError } from "@/lib/errors";
@@ -19,7 +19,6 @@ import { ReasonDialog } from "@/components/reason-dialog";
 import { SearchBox } from "@/components/search-box";
 import { matchesPerson } from "@/lib/search";
 import { EmptyState, PageHeader, StatCard } from "@/components/page-parts";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -82,6 +81,16 @@ type ExportRow = {
   members: { name: string } | null;
 };
 
+function dayBeforeIso(iso: string) {
+  const [y = 0, m = 1, d = 1] = iso.split("-").map(Number);
+  return localIso(new Date(y, m - 1, d - 1));
+}
+
+/** Accounting style: an amount below zero is shown in brackets. */
+function money(n: number) {
+  return n < 0 ? `(${naira(-n)})` : naira(n);
+}
+
 function daysAgoIso(days: number) {
   const now = new Date();
   return localIso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - days));
@@ -126,9 +135,9 @@ function LedgerPage() {
         )
         .gte("entry_date", fromDate)
         .lte("entry_date", toDate)
-        .order("entry_date", { ascending: false })
-        .order("created_at", { ascending: false })
-        .order("id", { ascending: false })
+        .order("entry_date", { ascending: true })
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
         .range(pageParam, pageParam + PAGE_SIZE - 1);
       if (error) throw error;
       return data;
@@ -141,6 +150,13 @@ function LedgerPage() {
     queryKey: ["ledger-balance", orgId],
     enabled: !!orgId,
     queryFn: () => fetchLedgerTotals(),
+  });
+
+  // What was in the purse before the first chosen day.
+  const opening = useQuery({
+    queryKey: ["ledger", orgId, "opening", fromDate],
+    enabled: !!orgId,
+    queryFn: () => fetchLedgerTotals(undefined, dayBeforeIso(fromDate)),
   });
 
   const rangeTotals = useQuery({
@@ -189,6 +205,14 @@ function LedgerPage() {
   });
 
   const rows = entries.data?.pages.flat() ?? [];
+  const openingBalance = Number(opening.data?.balance ?? 0);
+  // Running balance: each line moves the purse by kind × amount (reversals are negative).
+  const ledgerLines: { e: (typeof rows)[number]; balance: number }[] = [];
+  let running = openingBalance;
+  for (const e of rows) {
+    running += (e.kind === "income" ? 1 : -1) * Number(e.amount);
+    ledgerLines.push({ e, balance: running });
+  }
 
   // Downloads every entry in the chosen dates, not just the ones loaded on screen.
   const exportCsv = useMutation({
@@ -258,6 +282,10 @@ function LedgerPage() {
                 <Download className="size-4" />
               )}
               Download CSV
+            </Button>
+            <Button variant="outline" size="lg" className="gap-2" onClick={() => window.print()}>
+              <Printer className="size-4" />
+              Print
             </Button>
             {isAdmin && (
               <AddEntryDialog
@@ -349,89 +377,144 @@ function LedgerPage() {
           hint="Record an expense, or pick a wider date range."
         />
       ) : (
-        <ul className="divide-y divide-border overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
-          {rows.map((e) => {
-            // Reversal lines carry a negative amount, so money in the purse = kind × amount.
-            const effect = (e.kind === "income" ? 1 : -1) * Number(e.amount);
-            const moneyIn = effect >= 0;
-            const isReversal = !!e.reverses_id;
-            const isReversed = !!e.reversed_at;
-            const fromPayment =
-              e.source_table === "due_payments" || e.source_table === "contribution_payments";
-            return (
-              <li key={e.id} className="flex items-center gap-4 px-5 py-4">
-                <span
-                  className={`grid size-10 shrink-0 place-items-center rounded-full ${
-                    isReversal
-                      ? "bg-secondary text-muted-foreground"
-                      : moneyIn
-                        ? "bg-success/12 text-success"
-                        : "bg-destructive/12 text-destructive"
-                  }`}
-                >
-                  {isReversal ? (
-                    <Undo2 className="size-4" />
-                  ) : moneyIn ? (
-                    <ArrowDownLeft className="size-4" />
-                  ) : (
-                    <ArrowUpRight className="size-4" />
-                  )}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span
-                    className={`block truncate font-medium ${isReversed ? "line-through opacity-60" : ""}`}
+        <div className="print-fit overflow-x-auto rounded-3xl border border-border bg-card shadow-soft">
+          <table className="w-full min-w-[56rem] border-collapse text-sm">
+            <caption className="px-5 pt-4 text-left text-xs text-muted-foreground">
+              {shortDate(fromDate)} to {shortDate(toDate)} · oldest first · reversals are shown in
+              brackets
+            </caption>
+            <thead>
+              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <th className="px-4 py-3 font-medium">Date</th>
+                <th className="px-4 py-3 font-medium">Details</th>
+                <th className="px-4 py-3 font-medium">Category</th>
+                <th className="px-4 py-3 font-medium">Member</th>
+                <th className="px-4 py-3 font-medium">How paid</th>
+                <th className="px-4 py-3 text-right font-medium">Money in</th>
+                <th className="px-4 py-3 text-right font-medium">Money out</th>
+                <th className="px-4 py-3 text-right font-medium">Balance</th>
+                {isAdmin && <th className="print-hide px-4 py-3" />}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              <tr className="bg-muted/40">
+                <td className="whitespace-nowrap px-4 py-3">{shortDate(fromDate)}</td>
+                <td className="px-4 py-3 font-medium" colSpan={6}>
+                  Balance brought forward
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums">
+                  {opening.isLoading ? "…" : money(openingBalance)}
+                </td>
+                {isAdmin && <td className="print-hide" />}
+              </tr>
+              {ledgerLines.map(({ e, balance }) => {
+                const isReversal = !!e.reverses_id;
+                const isReversed = !!e.reversed_at;
+                const fromPayment =
+                  e.source_table === "due_payments" || e.source_table === "contribution_payments";
+                // Reversal lines carry a negative amount; they sit in the same column, in brackets.
+                const shown = money(Number(e.amount));
+                return (
+                  <tr key={e.id} className="align-top">
+                    <td className="whitespace-nowrap px-4 py-3">{shortDate(e.entry_date)}</td>
+                    <td className="px-4 py-3">
+                      <span className="block font-medium">{e.description || e.label}</span>
+                      {isReversal && (
+                        <span className="block text-xs text-muted-foreground">
+                          Reversal of an earlier line
+                        </span>
+                      )}
+                      {isReversed && (
+                        <span className="block text-xs text-destructive">
+                          Reversed{e.reverse_reason ? `: ${e.reverse_reason}` : ""}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {isReversal ? "Reversal" : e.label}
+                    </td>
+                    <td className="px-4 py-3">
+                      {(e.members as { name: string } | null)?.name ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {paymentModeText(e.channel, e.reference, e.method)}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-success">
+                      {e.kind === "income" ? shown : ""}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-destructive">
+                      {e.kind === "expense" ? shown : ""}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right font-medium tabular-nums">
+                      {opening.isLoading ? "…" : money(balance)}
+                    </td>
+                    {isAdmin && (
+                      <td className="print-hide px-4 py-2 text-right">
+                        {!isReversal && !isReversed && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-destructive/40 text-destructive"
+                            onClick={() =>
+                              setUndoing({
+                                id: e.id,
+                                label: e.description || e.label,
+                                payment:
+                                  fromPayment && e.source_id
+                                    ? {
+                                        kind:
+                                          e.source_table === "due_payments"
+                                            ? "due"
+                                            : "contribution",
+                                        id: e.source_id,
+                                      }
+                                    : null,
+                              })
+                            }
+                          >
+                            {fromPayment ? "Cancel payment" : "Reverse"}
+                          </Button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+              {entries.hasNextPage && (
+                <tr className="print-hide">
+                  <td
+                    className="px-4 py-3 text-center text-muted-foreground"
+                    colSpan={isAdmin ? 9 : 8}
                   >
-                    {e.description || e.label}
-                  </span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {shortDate(e.entry_date)} · {paymentModeText(e.channel, e.reference, e.method)}
-                    {(e.members as { name: string } | null)?.name
-                      ? ` · ${(e.members as { name: string }).name}`
-                      : ""}
-                  </span>
-                  {isReversed && (
-                    <span className="block truncate text-xs text-destructive">
-                      Reversed{e.reverse_reason ? `: ${e.reverse_reason}` : ""}
-                    </span>
-                  )}
-                </span>
-                <Badge variant="secondary" className="hidden sm:inline-flex">
-                  {isReversal ? "Reversal" : e.label}
-                </Badge>
-                <span
-                  className={`font-semibold ${
-                    isReversed ? "line-through opacity-60" : ""
-                  } ${moneyIn ? "text-success" : "text-destructive"}`}
-                >
-                  {moneyIn ? "+" : "−"}
-                  {naira(Math.abs(effect))}
-                </span>
-                {isAdmin && !isReversal && !isReversed && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="border-destructive/40 text-destructive"
-                    onClick={() =>
-                      setUndoing({
-                        id: e.id,
-                        label: e.description || e.label,
-                        payment:
-                          fromPayment && e.source_id
-                            ? {
-                                kind: e.source_table === "due_payments" ? "due" : "contribution",
-                                id: e.source_id,
-                              }
-                            : null,
-                      })
-                    }
-                  >
-                    {fromPayment ? "Cancel payment" : "Reverse"}
-                  </Button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+                    More lines in these dates. Tap “Show more” below to load them.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-foreground/70 font-semibold">
+                <td className="px-4 py-3" colSpan={5}>
+                  Totals for these dates
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-success">
+                  {money(rangeIncome)}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-destructive">
+                  {money(rangeExpense)}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">
+                  {opening.isLoading ? "…" : money(openingBalance + rangeIncome - rangeExpense)}
+                </td>
+                {isAdmin && <td className="print-hide" />}
+              </tr>
+              <tr className="text-xs text-muted-foreground">
+                <td className="px-4 pb-4" colSpan={isAdmin ? 9 : 8}>
+                  Closing balance = balance brought forward + money in − money out.
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       )}
 
       {entries.hasNextPage && (

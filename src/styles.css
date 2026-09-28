@@ -212,6 +212,14 @@
   .shadow-lift {
     box-shadow: none !important;
   }
+  /* Wide tables print whole instead of being cut at the scroll edge. */
+  .print-fit {
+    overflow: visible !important;
+  }
+  .print-fit table {
+    min-width: 0 !important;
+    font-size: 11px;
+  }
 }
 
 /* Chart colors (validated for colour-blind separation and contrast on the card surface). */
