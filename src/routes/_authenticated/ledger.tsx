@@ -170,7 +170,7 @@ function LedgerPage() {
   const [undoing, setUndoing] = useState<{
     id: string;
     label: string;
-    payment: { kind: "due" | "contribution"; id: string } | null;
+    payment: { kind: "due" | "contribution" | "pledge"; id: string } | null;
   } | null>(null);
   const undo = useMutation({
     mutationFn: async (reason: string) => {
@@ -197,6 +197,7 @@ function LedgerPage() {
         "member-due-payments",
         "member-contrib-payments",
         "member-standing",
+        "pledges",
       ]) {
         queryClient.invalidateQueries({ queryKey: [key] });
       }
@@ -411,7 +412,9 @@ function LedgerPage() {
                 const isReversal = !!e.reverses_id;
                 const isReversed = !!e.reversed_at;
                 const fromPayment =
-                  e.source_table === "due_payments" || e.source_table === "contribution_payments";
+                  e.source_table === "due_payments" ||
+                  e.source_table === "contribution_payments" ||
+                  e.source_table === "pledge_payments";
                 // Reversal lines carry a negative amount; they sit in the same column, in brackets.
                 const shown = money(Number(e.amount));
                 return (
@@ -465,7 +468,9 @@ function LedgerPage() {
                                         kind:
                                           e.source_table === "due_payments"
                                             ? "due"
-                                            : "contribution",
+                                            : e.source_table === "pledge_payments"
+                                              ? "pledge"
+                                              : "contribution",
                                         id: e.source_id,
                                       }
                                     : null,

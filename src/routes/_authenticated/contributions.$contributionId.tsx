@@ -18,6 +18,9 @@ import { RemindButton } from "@/components/remind-button";
 import { SearchBox } from "@/components/search-box";
 import { matchesPerson } from "@/lib/search";
 import { ContributionPeopleDialog } from "@/components/contribution-people-dialog";
+import { AddPledgeDialog, PledgeStats, PledgeTable } from "@/components/pledges";
+import { usePledges } from "@/lib/pledges";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmButton, ConfirmDialog } from "@/components/confirm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,6 +66,7 @@ function ContributionDetail() {
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
   const [addingExpense, setAddingExpense] = useState(false);
+  const pledges = usePledges({ contributionId });
 
   const contribution = useQuery({
     queryKey: ["contribution", contributionId],
@@ -367,6 +371,7 @@ function ContributionDetail() {
               dueDate: c.due_date ?? "",
               budget: c.budget_amount == null ? "" : String(c.budget_amount),
               target: c.target_amount == null ? "" : String(c.target_amount),
+              acceptsPledges: c.accepts_pledges,
             }}
             pending={saveDetails.isPending}
             onSave={(patch) => saveDetails.mutate(patch)}
@@ -522,6 +527,28 @@ function ContributionDetail() {
           </div>
         )}
       </section>
+
+      {c.accepts_pledges && (
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display text-xl font-semibold">Pledges & gifts</h2>
+              <p className="text-sm text-muted-foreground">
+                Promises towards {c.name}, from members or anyone else. Not counted as debts, and
+                kept apart from the payments above.
+              </p>
+            </div>
+            {isAdmin && !c.closed && (
+              <AddPledgeDialog
+                target={{ kind: "contribution", id: c.id, name: c.name }}
+                size="sm"
+              />
+            )}
+          </div>
+          <PledgeStats pledges={pledges.data ?? []} />
+          <PledgeTable pledges={pledges.data ?? []} emptyHint="No pledges for this yet." />
+        </section>
+      )}
 
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -746,6 +773,7 @@ type ContributionPatch = {
   due_date: string | null;
   budget_amount: number | null;
   target_amount: number | null;
+  accepts_pledges: boolean;
 };
 
 function EditContributionForm({
@@ -753,7 +781,14 @@ function EditContributionForm({
   pending,
   onSave,
 }: {
-  initial: { name: string; reason: string; dueDate: string; budget: string; target: string };
+  initial: {
+    name: string;
+    reason: string;
+    dueDate: string;
+    budget: string;
+    target: string;
+    acceptsPledges: boolean;
+  };
   pending: boolean;
   onSave: (patch: ContributionPatch) => void;
 }) {
@@ -762,6 +797,7 @@ function EditContributionForm({
   const [dueDate, setDueDate] = useState(initial.dueDate);
   const [budget, setBudget] = useState(initial.budget);
   const [target, setTarget] = useState(initial.target);
+  const [acceptsPledges, setAcceptsPledges] = useState(initial.acceptsPledges);
 
   return (
     <form
@@ -774,6 +810,7 @@ function EditContributionForm({
           due_date: dueDate || null,
           budget_amount: budget ? Number(budget) : null,
           target_amount: target ? Number(target) : null,
+          accepts_pledges: acceptsPledges,
         });
       }}
     >
@@ -814,6 +851,15 @@ function EditContributionForm({
           onChange={(e) => setBudget(e.target.value)}
         />
       </div>
+      <label className="flex items-start gap-3 rounded-2xl border border-border px-4 py-3 text-sm">
+        <Checkbox checked={acceptsPledges} onCheckedChange={(v) => setAcceptsPledges(v === true)} />
+        <span>
+          <span className="block font-medium">Take pledges and gifts</span>
+          <span className="block text-xs text-muted-foreground">
+            Pledges already made stay listed if you turn this off; no new ones can be added.
+          </span>
+        </span>
+      </label>
       <Button type="submit" size="lg" className="w-full" disabled={pending}>
         {pending && <Loader2 className="size-4 animate-spin" />} Save changes
       </Button>

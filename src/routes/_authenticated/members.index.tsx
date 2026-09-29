@@ -13,6 +13,8 @@ import { initials, todayIso } from "@/lib/format";
 import { SearchBox } from "@/components/search-box";
 import { matchesPerson } from "@/lib/search";
 import { PageHeader, EmptyState } from "@/components/page-parts";
+import { MemberDetailsFields } from "@/components/member-details-fields";
+import { detailsToRow, emptyDetails } from "@/lib/member-details";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -282,6 +284,7 @@ function AddMemberDialog({
   const [joinedOn, setJoinedOn] = useState(todayIso());
   const [branchId, setBranchId] = useState<string>(branches[0]?.id ?? "");
   const [tags, setTags] = useState<string[]>([]);
+  const [details, setDetails] = useState(emptyDetails);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -292,6 +295,7 @@ function AddMemberDialog({
         joined_on: joinedOn,
         branch_id: branchId || null,
         tags,
+        ...detailsToRow(details),
       });
       if (error) throw error;
     },
@@ -300,6 +304,7 @@ function AddMemberDialog({
       setName("");
       setPhone("");
       setTags([]);
+      setDetails(emptyDetails);
       setOpen(false);
       onDone();
     },
@@ -317,7 +322,8 @@ function AddMemberDialog({
         <DialogHeader>
           <DialogTitle>Add member</DialogTitle>
           <DialogDescription>
-            Name, phone, branch — and any label you want to give this person.
+            Name, phone, branch and labels. Open “More details” for email, address, date of birth
+            and next of kin — all optional.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -369,6 +375,7 @@ function AddMemberDialog({
             </Select>
           </div>
           <TagPicker tags={tags} onChange={setTags} />
+          <MemberDetailsFields value={details} onChange={setDetails} idPrefix="m" />
           <Button type="submit" size="lg" className="w-full" disabled={save.isPending}>
             {save.isPending && <Loader2 className="size-4 animate-spin" />} Save member
           </Button>

@@ -24,6 +24,8 @@ import { Route as AuthenticatedDuesIndexRouteImport } from './routes/_authentica
 import { Route as AuthenticatedDuesDueIdRouteImport } from './routes/_authenticated/dues.$dueId'
 import { Route as AuthenticatedMembersIndexRouteImport } from './routes/_authenticated/members.index'
 import { Route as AuthenticatedMembersMemberIdRouteImport } from './routes/_authenticated/members.$memberId'
+import { Route as AuthenticatedPledgesIndexRouteImport } from './routes/_authenticated/pledges.index'
+import { Route as AuthenticatedPledgesDriveIdRouteImport } from './routes/_authenticated/pledges.$driveId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -103,6 +105,18 @@ const AuthenticatedMembersMemberIdRoute =
     path: '/members/$memberId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPledgesIndexRoute =
+  AuthenticatedPledgesIndexRouteImport.update({
+    id: '/pledges/',
+    path: '/pledges/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedPledgesDriveIdRoute =
+  AuthenticatedPledgesDriveIdRouteImport.update({
+    id: '/pledges/$driveId',
+    path: '/pledges/$driveId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -116,9 +130,11 @@ export interface FileRoutesByFullPath {
   '/contributions/$contributionId': typeof AuthenticatedContributionsContributionIdRoute
   '/dues/$dueId': typeof AuthenticatedDuesDueIdRoute
   '/members/$memberId': typeof AuthenticatedMembersMemberIdRoute
+  '/pledges/$driveId': typeof AuthenticatedPledgesDriveIdRoute
   '/contributions/': typeof AuthenticatedContributionsIndexRoute
   '/dues/': typeof AuthenticatedDuesIndexRoute
   '/members/': typeof AuthenticatedMembersIndexRoute
+  '/pledges/': typeof AuthenticatedPledgesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -132,9 +148,11 @@ export interface FileRoutesByTo {
   '/contributions/$contributionId': typeof AuthenticatedContributionsContributionIdRoute
   '/dues/$dueId': typeof AuthenticatedDuesDueIdRoute
   '/members/$memberId': typeof AuthenticatedMembersMemberIdRoute
+  '/pledges/$driveId': typeof AuthenticatedPledgesDriveIdRoute
   '/contributions': typeof AuthenticatedContributionsIndexRoute
   '/dues': typeof AuthenticatedDuesIndexRoute
   '/members': typeof AuthenticatedMembersIndexRoute
+  '/pledges': typeof AuthenticatedPledgesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -150,9 +168,11 @@ export interface FileRoutesById {
   '/_authenticated/contributions/$contributionId': typeof AuthenticatedContributionsContributionIdRoute
   '/_authenticated/dues/$dueId': typeof AuthenticatedDuesDueIdRoute
   '/_authenticated/members/$memberId': typeof AuthenticatedMembersMemberIdRoute
+  '/_authenticated/pledges/$driveId': typeof AuthenticatedPledgesDriveIdRoute
   '/_authenticated/contributions/': typeof AuthenticatedContributionsIndexRoute
   '/_authenticated/dues/': typeof AuthenticatedDuesIndexRoute
   '/_authenticated/members/': typeof AuthenticatedMembersIndexRoute
+  '/_authenticated/pledges/': typeof AuthenticatedPledgesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -168,9 +188,11 @@ export interface FileRouteTypes {
     | '/contributions/$contributionId'
     | '/dues/$dueId'
     | '/members/$memberId'
+    | '/pledges/$driveId'
     | '/contributions/'
     | '/dues/'
     | '/members/'
+    | '/pledges/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -184,9 +206,11 @@ export interface FileRouteTypes {
     | '/contributions/$contributionId'
     | '/dues/$dueId'
     | '/members/$memberId'
+    | '/pledges/$driveId'
     | '/contributions'
     | '/dues'
     | '/members'
+    | '/pledges'
   id:
     | '__root__'
     | '/'
@@ -201,9 +225,11 @@ export interface FileRouteTypes {
     | '/_authenticated/contributions/$contributionId'
     | '/_authenticated/dues/$dueId'
     | '/_authenticated/members/$memberId'
+    | '/_authenticated/pledges/$driveId'
     | '/_authenticated/contributions/'
     | '/_authenticated/dues/'
     | '/_authenticated/members/'
+    | '/_authenticated/pledges/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -319,6 +345,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMembersMemberIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/pledges/': {
+      id: '/_authenticated/pledges/'
+      path: '/pledges'
+      fullPath: '/pledges/'
+      preLoaderRoute: typeof AuthenticatedPledgesIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/pledges/$driveId': {
+      id: '/_authenticated/pledges/$driveId'
+      path: '/pledges/$driveId'
+      fullPath: '/pledges/$driveId'
+      preLoaderRoute: typeof AuthenticatedPledgesDriveIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -332,9 +372,11 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedContributionsContributionIdRoute: typeof AuthenticatedContributionsContributionIdRoute
   AuthenticatedDuesDueIdRoute: typeof AuthenticatedDuesDueIdRoute
   AuthenticatedMembersMemberIdRoute: typeof AuthenticatedMembersMemberIdRoute
+  AuthenticatedPledgesDriveIdRoute: typeof AuthenticatedPledgesDriveIdRoute
   AuthenticatedContributionsIndexRoute: typeof AuthenticatedContributionsIndexRoute
   AuthenticatedDuesIndexRoute: typeof AuthenticatedDuesIndexRoute
   AuthenticatedMembersIndexRoute: typeof AuthenticatedMembersIndexRoute
+  AuthenticatedPledgesIndexRoute: typeof AuthenticatedPledgesIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -348,9 +390,11 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedContributionsContributionIdRoute,
   AuthenticatedDuesDueIdRoute: AuthenticatedDuesDueIdRoute,
   AuthenticatedMembersMemberIdRoute: AuthenticatedMembersMemberIdRoute,
+  AuthenticatedPledgesDriveIdRoute: AuthenticatedPledgesDriveIdRoute,
   AuthenticatedContributionsIndexRoute: AuthenticatedContributionsIndexRoute,
   AuthenticatedDuesIndexRoute: AuthenticatedDuesIndexRoute,
   AuthenticatedMembersIndexRoute: AuthenticatedMembersIndexRoute,
+  AuthenticatedPledgesIndexRoute: AuthenticatedPledgesIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

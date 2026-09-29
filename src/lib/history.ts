@@ -19,6 +19,9 @@ type Row = {
   role?: string;
   reverses_id?: string | null;
   expenses_posted?: boolean;
+  pledger_name?: string;
+  cancelled_at?: string | null;
+  cancel_reason?: string | null;
   [key: string]: unknown;
 };
 export type Entry = {
@@ -48,6 +51,20 @@ const fieldNames: Record<string, string> = {
   committee: "committee",
   logo_url: "logo",
   role: "role",
+  email: "email",
+  gender: "gender",
+  date_of_birth: "date of birth",
+  address: "address",
+  occupation: "occupation",
+  next_of_kin_name: "next of kin",
+  next_of_kin_phone: "next of kin's phone",
+  accepts_pledges: "pledges",
+  pledger_name: "name",
+  pledger_phone: "phone",
+  pledger_address: "address",
+  amount: "amount",
+  promised_by: "promised date",
+  closes_on: "closing date",
 };
 
 function changedFields(oldRow: Row | null, newRow: Row | null) {
@@ -78,6 +95,21 @@ export function describeChange(e: Entry, names: Map<string, string>) {
       if (cancelled !== null)
         return `cancelled a payment of ${amount} for ${member} towards ${nameOf(row.contribution_id) ?? "a contribution"}${cancelled}`;
       return `recorded a payment of ${amount} for ${member} towards ${nameOf(row.contribution_id) ?? "a contribution"}`;
+    case "pledge_drives":
+      if (e.action === "insert") return `started the pledge drive ${String(row.name)}`;
+      if (e.action === "delete") return `deleted the pledge drive ${String(row.name)}`;
+      return `edited the pledge drive ${String(row.name)}${edited}`;
+    case "pledges":
+      if (e.action === "insert")
+        return `recorded a pledge of ${amount} from ${String(row.pledger_name)}`;
+      if (e.action === "delete")
+        return `deleted a pledge of ${amount} from ${String(row.pledger_name)}`;
+      if (e.new_row?.cancelled_at && !e.old_row?.cancelled_at)
+        return `cancelled a pledge of ${amount} from ${String(row.pledger_name)} — ${String(e.new_row?.cancel_reason ?? "")}`;
+      return `edited a pledge from ${String(row.pledger_name)}${edited}`;
+    case "pledge_payments":
+      if (cancelled !== null) return `cancelled a pledge payment of ${amount}${cancelled}`;
+      return `recorded a pledge payment of ${amount}`;
     case "members":
       if (e.action === "insert") return `added member ${String(row.name)}`;
       return `edited member ${String(row.name)}${edited}`;

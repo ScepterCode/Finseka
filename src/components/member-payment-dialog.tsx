@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Wallet } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { friendlyError } from "@/lib/errors";
 import { naira, todayIso } from "@/lib/format";
 import { defaultPaymentMode, type PaymentMode } from "@/lib/methods";
+import { AUTO, debtKey, type Debt } from "@/lib/debts";
 import { PaymentModeFields } from "@/components/method-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,56 +18,131 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Part = { kind: string; name: string; period: string | null; amount: number };
 
 /**
- * Record one payment on a member's profile. The database applies it to their oldest
- * debts first (each due period in date order, then compulsory contributions).
+ * Record a payment on a member's profile: pick one debt to settle (in full or in part),
+ * or let the payment go to their oldest debts first.
  */
 export function MemberPaymentDialog({
+  orgId,
   memberId,
   memberName,
-  owing,
+  debts,
+  open,
+  preselect,
+  onOpenChange,
 }: {
+  orgId: string;
   memberId: string;
   memberName: string;
-  owing: number;
+  /** Oldest first. */
+  debts: Debt[];
+  open: boolean;
+  /** AUTO or a debtKey. */
+  preselect: string;
+  onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [choice, setChoice] = useState(AUTO);
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(todayIso());
   const [mode, setMode] = useState<PaymentMode>(defaultPaymentMode);
   const [note, setNote] = useState("");
   const [clientRef, setClientRef] = useState(() => crypto.randomUUID());
 
+  const totalOwing = debts.reduce((s, d) => s + d.owing, 0);
+  const debt = debts.find((d) => debtKey(d) === choice) ?? null;
+  const owingForChoice = debt ? debt.owing : totalOwing;
+
+  // Fresh form each time it opens, pre-filled with what is owed.
+  useEffect(() => {
+    if (!open) return;
+    const start = debts.some((d) => debtKey(d) === preselect) ? preselect : AUTO;
+    const d = debts.find((x) => debtKey(x) === start);
+    setChoice(start);
+    setAmount(String(d ? d.owing : debts.reduce((s, x) => s + x.owing, 0)));
+    setDate(todayIso());
+    setMode(defaultPaymentMode);
+    setNote("");
+    setClientRef(crypto.randomUUID());
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when it opens
+  }, [open, preselect]);
+
+  const pick = (key: string) => {
+    setChoice(key);
+    const d = debts.find((x) => debtKey(x) === key);
+    setAmount(String(d ? d.owing : totalOwing));
+  };
+
+  const value = Number(amount);
+  const tooMuch = value > owingForChoice;
+  const left = Math.max(owingForChoice - value, 0);
+
   const save = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.rpc("pay_member_debts", {
-        _member_id: memberId,
-        _amount: Number(amount),
-        _paid_at: date,
-        _channel: mode.channel,
-        _client_ref: clientRef,
-        ...(mode.reference.trim() ? { _reference: mode.reference.trim() } : {}),
-        ...(note.trim() ? { _note: note.trim() } : {}),
-      });
+    mutationFn: async (): Promise<string> => {
+      if (!debt) {
+        const { data, error } = await supabase.rpc("pay_member_debts", {
+          _member_id: memberId,
+          _amount: value,
+          _paid_at: date,
+          _channel: mode.channel,
+          _client_ref: clientRef,
+          ...(mode.reference.trim() ? { _reference: mode.reference.trim() } : {}),
+          ...(note.trim() ? { _note: note.trim() } : {}),
+        });
+        if (error) throw error;
+        const r = data as unknown as { already_saved: boolean; parts: Part[] };
+        if (r.already_saved) return "That payment was already saved";
+        return `Payment recorded: ${r.parts
+          .map((p) => `${p.name}${p.period ? ` ${p.period}` : ""} ${naira(p.amount)}`)
+          .join(", ")}`;
+      }
+      const common = {
+        org_id: orgId,
+        member_id: memberId,
+        amount: value,
+        paid_at: date,
+        channel: mode.channel,
+        reference: mode.reference.trim() || null,
+        note: note.trim() || null,
+        client_ref: clientRef,
+      };
+      // client_ref makes a retried save a no-op instead of a second payment.
+      const { error } =
+        debt.kind === "due"
+          ? await supabase.from("due_payments").upsert(
+              {
+                ...common,
+                due_id: debt.dueId,
+                period_start: debt.periodStart,
+                period_label: debt.periodLabel,
+              },
+              { onConflict: "client_ref", ignoreDuplicates: true },
+            )
+          : await supabase
+              .from("contribution_payments")
+              .upsert(
+                { ...common, contribution_id: debt.contributionId },
+                { onConflict: "client_ref", ignoreDuplicates: true },
+              );
       if (error) throw error;
-      return data as unknown as { already_saved: boolean; parts: Part[] };
+      return value < debt.owing
+        ? `Part payment of ${naira(value)} recorded for ${debt.title}`
+        : `${debt.title} paid in full`;
     },
-    onSuccess: (r) => {
-      const parts = r.parts.map(
-        (p) => `${p.name}${p.period ? ` ${p.period}` : ""} ${naira(p.amount)}`,
-      );
-      toast.success(
-        r.already_saved
-          ? "That payment was already saved"
-          : `Payment recorded: ${parts.join(", ")}`,
-      );
-      setOpen(false);
+    onSuccess: (message) => {
+      toast.success(message);
+      onOpenChange(false);
       for (const key of [
         "member-due-payments",
         "member-contrib-payments",
@@ -85,50 +161,82 @@ export function MemberPaymentDialog({
   });
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        setOpen(o);
-        if (o) {
-          setAmount(String(owing));
-          setDate(todayIso());
-          setMode(defaultPaymentMode);
-          setNote("");
-          setClientRef(crypto.randomUUID());
-        }
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm" className="gap-2">
-          <Wallet className="size-3.5" /> Record payment
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Record a payment from {memberName}</DialogTitle>
           <DialogDescription>
-            They owe {naira(owing)}. The payment goes to their oldest debts first; each part shows
-            in the ledger as usual.
+            They owe {naira(totalOwing)} in all. Pick what this payment is for.
           </DialogDescription>
         </DialogHeader>
         <form
           className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
-            save.mutate();
+            if (!tooMuch) save.mutate();
           }}
         >
+          <div className="space-y-2">
+            <Label>What are they paying for?</Label>
+            <Select value={choice} onValueChange={pick}>
+              <SelectTrigger className="h-auto min-h-10 whitespace-normal text-left">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                <SelectItem value={AUTO}>
+                  Oldest debts first (spread over everything) · {naira(totalOwing)}
+                </SelectItem>
+                {debts.map((d) => (
+                  <SelectItem key={debtKey(d)} value={debtKey(d)}>
+                    {d.title} · owes {naira(d.owing)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {debts.length} {debts.length === 1 ? "debt" : "debts"} outstanding.
+            </p>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="mp-amount">How much did they pay? (₦)</Label>
             <Input
               id="mp-amount"
               type="number"
               min="1"
-              max={owing}
+              step="any"
               required
               value={amount}
+              aria-invalid={tooMuch}
               onChange={(e) => setAmount(e.target.value)}
             />
+            {value > 0 && (
+              <p
+                className={`rounded-xl px-3 py-2 text-sm ${
+                  tooMuch
+                    ? "bg-destructive/10 text-destructive"
+                    : left === 0
+                      ? "bg-success/10 text-success"
+                      : "bg-accent/10 text-accent"
+                }`}
+              >
+                {tooMuch
+                  ? `That is more than the ${naira(owingForChoice)} owed${debt ? " for this" : ""}. Lower the amount${debt ? ", or pick “Oldest debts first” to spread it" : ", or record the extra as a donation in the ledger"}.`
+                  : left === 0
+                    ? debt
+                      ? "This settles it in full."
+                      : "This clears everything they owe."
+                    : debt
+                      ? `Part payment: ${naira(left)} will still be owed on this.`
+                      : `Goes to the oldest debts first. ${naira(left)} will still be owed.`}
+              </p>
+            )}
+            {debt?.kind === "due" && debt.penalty > 0 && (
+              <p className="text-xs text-muted-foreground">
+                This period also has a {naira(debt.penalty)} late charge. It clears once the period
+                is paid in full.
+              </p>
+            )}
           </div>
           <PaymentModeFields value={mode} onChange={setMode} />
           <div className="space-y-2">
@@ -144,8 +252,14 @@ export function MemberPaymentDialog({
             <Label htmlFor="mp-note">Note (optional)</Label>
             <Input id="mp-note" value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
-          <Button type="submit" size="lg" className="w-full" disabled={save.isPending}>
-            {save.isPending && <Loader2 className="size-4 animate-spin" />} Save payment
+          <Button
+            type="submit"
+            size="lg"
+            className="w-full"
+            disabled={save.isPending || tooMuch || !(value > 0)}
+          >
+            {save.isPending && <Loader2 className="size-4 animate-spin" />}
+            {left > 0 && !tooMuch ? "Save part payment" : "Save payment"}
           </Button>
         </form>
       </DialogContent>

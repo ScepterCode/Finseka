@@ -251,6 +251,7 @@ export type Database = {
       };
       contributions: {
         Row: {
+          accepts_pledges: boolean;
           amount_per_person: number;
           budget_amount: number | null;
           closed: boolean;
@@ -266,6 +267,7 @@ export type Database = {
           target_amount: number | null;
         };
         Insert: {
+          accepts_pledges?: boolean;
           amount_per_person?: number;
           budget_amount?: number | null;
           closed?: boolean;
@@ -281,6 +283,7 @@ export type Database = {
           target_amount?: number | null;
         };
         Update: {
+          accepts_pledges?: boolean;
           amount_per_person?: number;
           budget_amount?: number | null;
           closed?: boolean;
@@ -613,6 +616,13 @@ export type Database = {
       };
       members: {
         Row: {
+          address: string | null;
+          date_of_birth: string | null;
+          email: string | null;
+          gender: string | null;
+          next_of_kin_name: string | null;
+          next_of_kin_phone: string | null;
+          occupation: string | null;
           active: boolean;
           branch_id: string | null;
           created_at: string;
@@ -624,6 +634,13 @@ export type Database = {
           tags: string[];
         };
         Insert: {
+          address?: string | null;
+          date_of_birth?: string | null;
+          email?: string | null;
+          gender?: string | null;
+          next_of_kin_name?: string | null;
+          next_of_kin_phone?: string | null;
+          occupation?: string | null;
           active?: boolean;
           branch_id?: string | null;
           created_at?: string;
@@ -635,6 +652,13 @@ export type Database = {
           tags?: string[];
         };
         Update: {
+          address?: string | null;
+          date_of_birth?: string | null;
+          email?: string | null;
+          gender?: string | null;
+          next_of_kin_name?: string | null;
+          next_of_kin_phone?: string | null;
+          occupation?: string | null;
           active?: boolean;
           branch_id?: string | null;
           created_at?: string;
@@ -655,6 +679,199 @@ export type Database = {
           },
           {
             foreignKeyName: "members_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      pledge_drives: {
+        Row: {
+          closed: boolean;
+          closes_on: string | null;
+          created_at: string;
+          description: string | null;
+          id: string;
+          name: string;
+          org_id: string;
+          target_amount: number | null;
+        };
+        Insert: {
+          closed?: boolean;
+          closes_on?: string | null;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          name: string;
+          org_id: string;
+          target_amount?: number | null;
+        };
+        Update: {
+          closed?: boolean;
+          closes_on?: string | null;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          name?: string;
+          org_id?: string;
+          target_amount?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pledge_drives_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      pledge_payments: {
+        Row: {
+          amount: number;
+          channel: Database["public"]["Enums"]["payment_channel"];
+          client_ref: string | null;
+          created_at: string;
+          id: string;
+          method: Database["public"]["Enums"]["payment_method"];
+          note: string | null;
+          org_id: string;
+          paid_at: string;
+          pledge_id: string;
+          reference: string | null;
+          void_reason: string | null;
+          voided_at: string | null;
+          voided_by: string | null;
+        };
+        Insert: {
+          amount: number;
+          channel: Database["public"]["Enums"]["payment_channel"];
+          client_ref?: string | null;
+          created_at?: string;
+          id?: string;
+          method?: Database["public"]["Enums"]["payment_method"];
+          note?: string | null;
+          org_id: string;
+          paid_at?: string;
+          pledge_id: string;
+          reference?: string | null;
+          void_reason?: string | null;
+          voided_at?: string | null;
+          voided_by?: string | null;
+        };
+        Update: {
+          amount?: number;
+          channel?: Database["public"]["Enums"]["payment_channel"];
+          client_ref?: string | null;
+          created_at?: string;
+          id?: string;
+          method?: Database["public"]["Enums"]["payment_method"];
+          note?: string | null;
+          org_id?: string;
+          paid_at?: string;
+          pledge_id?: string;
+          reference?: string | null;
+          void_reason?: string | null;
+          voided_at?: string | null;
+          voided_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pledge_payments_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "pledge_payments_pledge_id_fkey";
+            columns: ["pledge_id"];
+            isOneToOne: false;
+            referencedRelation: "pledges";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      pledges: {
+        Row: {
+          amount: number;
+          cancel_reason: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          contribution_id: string | null;
+          created_at: string;
+          drive_id: string | null;
+          id: string;
+          member_id: string | null;
+          note: string | null;
+          org_id: string;
+          pledged_on: string;
+          pledger_address: string | null;
+          pledger_name: string;
+          pledger_phone: string | null;
+          promised_by: string | null;
+        };
+        Insert: {
+          amount: number;
+          cancel_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          contribution_id?: string | null;
+          created_at?: string;
+          drive_id?: string | null;
+          id?: string;
+          member_id?: string | null;
+          note?: string | null;
+          org_id: string;
+          pledged_on?: string;
+          pledger_address?: string | null;
+          pledger_name: string;
+          pledger_phone?: string | null;
+          promised_by?: string | null;
+        };
+        Update: {
+          amount?: number;
+          cancel_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          contribution_id?: string | null;
+          created_at?: string;
+          drive_id?: string | null;
+          id?: string;
+          member_id?: string | null;
+          note?: string | null;
+          org_id?: string;
+          pledged_on?: string;
+          pledger_address?: string | null;
+          pledger_name?: string;
+          pledger_phone?: string | null;
+          promised_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pledges_contribution_id_fkey";
+            columns: ["contribution_id"];
+            isOneToOne: false;
+            referencedRelation: "contributions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "pledges_drive_id_fkey";
+            columns: ["drive_id"];
+            isOneToOne: false;
+            referencedRelation: "pledge_drives";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "pledges_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "pledges_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
@@ -761,7 +978,31 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      pledge_status: {
+        Row: {
+          amount: number;
+          cancel_reason: string | null;
+          cancelled_at: string | null;
+          contribution_id: string | null;
+          created_at: string;
+          drive_id: string | null;
+          for_name: string | null;
+          id: string;
+          last_paid_at: string | null;
+          member_id: string | null;
+          note: string | null;
+          org_id: string;
+          outstanding: number;
+          pledged_on: string;
+          pledger_address: string | null;
+          pledger_name: string;
+          pledger_phone: string | null;
+          promised_by: string | null;
+          redeemed: number;
+          status: "open" | "part" | "redeemed" | "cancelled";
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       account_deletion_blocker: { Args: never; Returns: string | null };
@@ -878,6 +1119,10 @@ export type Database = {
         Returns: string;
       };
       user_id_for_email: { Args: { _email: string }; Returns: string | null };
+      cancel_pledge: {
+        Args: { _pledge_id: string; _reason: string };
+        Returns: undefined;
+      };
       void_payment: {
         Args: { _kind: string; _payment_id: string; _reason: string };
         Returns: undefined;

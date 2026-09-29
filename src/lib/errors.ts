@@ -22,6 +22,19 @@ const constraintMessages: Record<string, string> = {
   members_name_present: "Enter the member's name.",
   branches_name_present: "Enter the branch name.",
   organizations_name_present: "Enter the organization name.",
+  members_email_shape: "That email address doesn't look right. Check it, or leave it blank.",
+  members_gender_known: "Pick female or male, or leave it blank.",
+  members_birth_date_sane: "Check the date of birth.",
+  members_details_length: "One of the details is too long. Shorten it and try again.",
+  pledges_name_present: "Enter the name of the person pledging.",
+  pledges_for_one_thing: "Pick what the pledge is for.",
+  pledges_details_length: "One of the details is too long. Shorten it and try again.",
+  pledges_amount_check: "A pledge must be more than ₦0.",
+  pledge_payments_amount_check: "A payment must be more than ₦0.",
+  pledge_drives_name_check: "Give the pledge drive a name.",
+  pledge_drives_target_amount_check: "The target cannot be less than ₦0.",
+  pledge_payments_pledge_id_fkey:
+    "This pledge has payments recorded, so it can't be deleted. Cancel it instead.",
 };
 
 type DbError = { message?: string; code?: string; details?: string | null };

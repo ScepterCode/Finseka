@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, Pencil } from "lucide-react";
+import { ArrowLeft, Loader2, Pencil, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 import { friendlyError } from "@/lib/errors";
@@ -22,7 +22,16 @@ import { ReasonDialog } from "@/components/reason-dialog";
 import { RemindButton } from "@/components/remind-button";
 import { MemberStatement } from "@/components/member-statement";
 import { MemberPaymentDialog } from "@/components/member-payment-dialog";
-import { DebtPaymentDialog, type Debt } from "@/components/debt-payment-dialog";
+import { AUTO, type Debt } from "@/lib/debts";
+import { MemberDetailsFields } from "@/components/member-details-fields";
+import {
+  detailsFromRow,
+  detailsList,
+  detailsToRow,
+  type MemberDetails,
+} from "@/lib/member-details";
+import { PledgeTable } from "@/components/pledges";
+import { usePledges } from "@/lib/pledges";
 import { buildStatement } from "@/lib/statement";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -62,14 +71,17 @@ function MemberProfile() {
   const { isAdmin, orgId, org } = useAuth();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
-  const [payingDebt, setPayingDebt] = useState<Debt | null>(null);
+  // null = closed; otherwise which debt the payment form starts on (AUTO = oldest first).
+  const [paying, setPaying] = useState<string | null>(null);
 
   const member = useQuery({
     queryKey: ["member", memberId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("members")
-        .select("id, name, phone, active, tags, branch_id, joined_on, branches(name)")
+        .select(
+          "id, name, phone, active, tags, branch_id, joined_on, email, gender, date_of_birth, address, occupation, next_of_kin_name, next_of_kin_phone, branches(name)",
+        )
         .eq("id", memberId)
         .maybeSingle();
       if (error) throw error;
@@ -224,6 +236,8 @@ function MemberProfile() {
     onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
+  const pledges = usePledges({ memberId });
+
   const loading =
     member.isLoading ||
     dues.isLoading ||
@@ -327,6 +341,34 @@ function MemberProfile() {
     })
     .filter((c) => c.obliged || c.paid > 0);
 
+  // Every debt, oldest first — the same order "oldest debts first" pays them in.
+  const closedContributions = new Set(
+    (contributions.data ?? []).filter((c) => c.closed).map((c) => c.id),
+  );
+  const debts: Debt[] = lines
+    .filter((l) => l.short > 0 && !(l.kind === "contribution" && closedContributions.has(l.ref_id)))
+    .sort(
+      (a, b) =>
+        (a.period_start ?? "9999-12-31").localeCompare(b.period_start ?? "9999-12-31") ||
+        (a.kind === b.kind ? 0 : a.kind === "due" ? -1 : 1) ||
+        a.ref_name.localeCompare(b.ref_name),
+    )
+    .map((l): Debt =>
+      l.kind === "due"
+        ? {
+            kind: "due",
+            dueId: l.ref_id,
+            periodStart: l.period_start ?? "",
+            periodLabel: l.period_label ?? "",
+            title: `${l.ref_name} — ${l.period_label ?? ""}`,
+            owing: l.short,
+            penalty: l.penalty,
+          }
+        : { kind: "contribution", contributionId: l.ref_id, title: l.ref_name, owing: l.short },
+    );
+  const details = detailsFromRow(member.data);
+  const shownDetails = detailsList(details);
+
   const duesPaidTotal = paymentsByDue.reduce((s, p) => s + Number(p.amount), 0);
   const contribPaidTotal = cPayments.reduce((s, p) => s + Number(p.amount), 0);
   const totalPaid = duesPaidTotal + contribPaidTotal;
@@ -399,12 +441,10 @@ function MemberProfile() {
               }
               amount={totalOwing}
             />
-            {isAdmin && totalOwing > 0 && (
-              <MemberPaymentDialog
-                memberId={memberId}
-                memberName={member.data.name}
-                owing={totalOwing}
-              />
+            {isAdmin && debts.length > 0 && (
+              <Button size="sm" className="gap-2" onClick={() => setPaying(AUTO)}>
+                <Wallet className="size-3.5" /> Record payment
+              </Button>
             )}
             {isAdmin && (
               <Button
@@ -457,6 +497,8 @@ function MemberProfile() {
           <TabsTrigger value="dues">Dues to pay ({dueRows.length})</TabsTrigger>
           <TabsTrigger value="contributions">Contributions ({contribRows.length})</TabsTrigger>
           <TabsTrigger value="history">Payment history ({history.length})</TabsTrigger>
+          <TabsTrigger value="pledges">Pledges ({pledges.data?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="details">Details</TabsTrigger>
         </TabsList>
 
         <TabsContent value="statement" className="mt-5">
@@ -533,16 +575,7 @@ function MemberProfile() {
                               {p.short > 0 && (
                                 <Button
                                   size="sm"
-                                  onClick={() =>
-                                    setPayingDebt({
-                                      kind: "due",
-                                      dueId: d.id,
-                                      periodStart: p.periodStart,
-                                      periodLabel: p.period,
-                                      title: `${d.name} — ${p.period}`,
-                                      owing: p.short,
-                                    })
-                                  }
+                                  onClick={() => setPaying(`due:${d.id}:${p.periodStart}`)}
                                 >
                                   Pay
                                 </Button>
@@ -616,17 +649,7 @@ function MemberProfile() {
                       {isAdmin && (
                         <td className="px-5 py-3 text-right">
                           {c.owing > 0 && !c.closed && (
-                            <Button
-                              size="sm"
-                              onClick={() =>
-                                setPayingDebt({
-                                  kind: "contribution",
-                                  contributionId: c.id,
-                                  title: c.name,
-                                  owing: c.owing,
-                                })
-                              }
-                            >
+                            <Button size="sm" onClick={() => setPaying(`contribution:${c.id}`)}>
                               Pay
                             </Button>
                           )}
@@ -698,6 +721,45 @@ function MemberProfile() {
             </ul>
           )}
         </TabsContent>
+        <TabsContent value="pledges" className="mt-5 space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Pledges are promises, not debts: they are not part of what {member.data.name} owes.
+          </p>
+          {isAdmin && (
+            <p className="text-sm text-muted-foreground">
+              To add one, open the{" "}
+              <Link to="/pledges" className="link">
+                Pledges page
+              </Link>{" "}
+              or a contribution that takes pledges.
+            </p>
+          )}
+          <PledgeTable
+            pledges={pledges.data ?? []}
+            showFor
+            emptyHint={`${member.data.name} has not made any pledges.`}
+          />
+        </TabsContent>
+
+        <TabsContent value="details" className="mt-5">
+          <div className="rounded-3xl border border-border bg-card p-6 shadow-soft">
+            {shownDetails.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No extra details saved.
+                {isAdmin ? " Tap Edit to add email, address, date of birth and more." : ""}
+              </p>
+            ) : (
+              <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[10rem_1fr]">
+                {shownDetails.map((x) => (
+                  <div key={x.label} className="contents">
+                    <dt className="text-muted-foreground">{x.label}</dt>
+                    <dd className="break-words font-medium">{x.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </div>
+        </TabsContent>
       </Tabs>
 
       <Dialog open={editing} onOpenChange={setEditing}>
@@ -717,6 +779,7 @@ function MemberProfile() {
               joinedOn: member.data.joined_on,
               tags,
               active: member.data.active,
+              details,
             }}
             branches={branches.data ?? []}
             pending={update.isPending}
@@ -725,12 +788,14 @@ function MemberProfile() {
         </DialogContent>
       </Dialog>
 
-      <DebtPaymentDialog
+      <MemberPaymentDialog
         orgId={orgId!}
         memberId={memberId}
         memberName={member.data.name}
-        debt={payingDebt}
-        onClose={() => setPayingDebt(null)}
+        debts={debts}
+        open={paying !== null}
+        preselect={paying ?? AUTO}
+        onOpenChange={(o) => !o && setPaying(null)}
       />
 
       <ReasonDialog
@@ -753,7 +818,7 @@ type MemberPatch = {
   joined_on: string;
   active: boolean;
   tags: string[];
-};
+} & ReturnType<typeof detailsToRow>;
 
 function EditMemberForm({
   initial,
@@ -768,6 +833,7 @@ function EditMemberForm({
     joinedOn: string;
     tags: string[];
     active: boolean;
+    details: MemberDetails;
   };
   branches: { id: string; name: string }[];
   pending: boolean;
@@ -779,6 +845,7 @@ function EditMemberForm({
   const [joinedOn, setJoinedOn] = useState(initial.joinedOn);
   const [tags, setTags] = useState(initial.tags);
   const [active, setActive] = useState(initial.active ? "yes" : "no");
+  const [details, setDetails] = useState(initial.details);
 
   return (
     <form
@@ -792,6 +859,7 @@ function EditMemberForm({
           joined_on: joinedOn,
           active: active === "yes",
           tags,
+          ...detailsToRow(details),
         });
       }}
     >
@@ -845,6 +913,7 @@ function EditMemberForm({
         </Select>
       </div>
       <TagPicker tags={tags} onChange={setTags} />
+      <MemberDetailsFields value={details} onChange={setDetails} idPrefix="em" />
       <Button type="submit" size="lg" className="w-full" disabled={pending}>
         {pending && <Loader2 className="size-4 animate-spin" />} Save changes
       </Button>

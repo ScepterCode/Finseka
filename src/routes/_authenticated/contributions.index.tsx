@@ -178,6 +178,7 @@ function NewContributionDialog({
   const [mandatory, setMandatory] = useState(true);
   const [budget, setBudget] = useState("");
   const [committee, setCommittee] = useState<string[]>([]);
+  const [acceptsPledges, setAcceptsPledges] = useState(false);
 
   const allPicked = picked.length === members.length && members.length > 0;
 
@@ -195,6 +196,7 @@ function NewContributionDialog({
           mandatory,
           budget_amount: budget ? Number(budget) : null,
           committee,
+          accepts_pledges: acceptsPledges,
         })
         .select("id")
         .single();
@@ -218,6 +220,7 @@ function NewContributionDialog({
       setTarget("");
       setDueDate("");
       setPicked([]);
+      setAcceptsPledges(false);
       setOpen(false);
       onDone();
     },
@@ -316,6 +319,19 @@ function NewContributionDialog({
                 : "People give what they can — nobody is owing."}
             </p>
           </div>
+          <label className="flex items-start gap-3 rounded-2xl border border-border px-4 py-3 text-sm">
+            <Checkbox
+              checked={acceptsPledges}
+              onCheckedChange={(v) => setAcceptsPledges(v === true)}
+            />
+            <span>
+              <span className="block font-medium">Also take pledges and gifts</span>
+              <span className="block text-xs text-muted-foreground">
+                Members and outsiders can pledge towards it. Pledges are tracked on their own and
+                never counted as debts.
+              </span>
+            </span>
+          </label>
           <div className="space-y-2">
             <Label htmlFor="c-budget">Event budget (₦, optional)</Label>
             <Input
