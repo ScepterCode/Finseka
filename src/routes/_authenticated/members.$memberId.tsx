@@ -255,6 +255,21 @@ function MemberProfile() {
     );
   }
 
+  // A failed load is not the same as a missing member: say so, and offer a retry.
+  if (member.error) {
+    return (
+      <EmptyState
+        title="Couldn't load this member"
+        hint={friendlyError(member.error)}
+        action={
+          <Button variant="outline" onClick={() => void member.refetch()}>
+            Try again
+          </Button>
+        }
+      />
+    );
+  }
+
   if (!member.data) {
     return (
       <EmptyState
