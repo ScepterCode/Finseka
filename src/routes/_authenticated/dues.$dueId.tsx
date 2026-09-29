@@ -27,6 +27,7 @@ import { EmptyState, PageHeader, StatCard } from "@/components/page-parts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/money-input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -559,13 +560,7 @@ function EditDueForm({
       </div>
       <div className="space-y-2">
         <Label htmlFor="ed-penalty">Late charge for each missed period (₦, 0 for none)</Label>
-        <Input
-          id="ed-penalty"
-          type="number"
-          min="0"
-          value={penalty}
-          onChange={(e) => setPenalty(e.target.value)}
-        />
+        <MoneyInput id="ed-penalty" min={0} value={penalty} onChange={setPenalty} />
       </div>
       <div className="space-y-2">
         <Label htmlFor="ed-grace">Days after a period ends before the late charge applies</Label>
@@ -624,14 +619,7 @@ function ChangeAmountForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="ca-amount">New amount (₦)</Label>
-          <Input
-            id="ca-amount"
-            type="number"
-            min="1"
-            required
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
+          <MoneyInput id="ca-amount" min={1} required value={amount} onChange={setAmount} />
         </div>
         <div className="space-y-2">
           <Label>Starting from</Label>
@@ -694,14 +682,7 @@ function PaymentForm({
     >
       <div className="space-y-2">
         <Label htmlFor="p-amount">How much did they pay? (₦)</Label>
-        <Input
-          id="p-amount"
-          required
-          type="number"
-          min="1"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-        />
+        <MoneyInput id="p-amount" required min={1} value={amount} onChange={setAmount} />
       </div>
       <PaymentModeFields value={method} onChange={setMethod} />
       <div className="space-y-2">

@@ -25,6 +25,7 @@ import { ConfirmButton, ConfirmDialog } from "@/components/confirm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/money-input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -734,14 +735,7 @@ function PayForm({
     >
       <div className="space-y-2">
         <Label htmlFor="cp-amount">How much did they pay? (₦)</Label>
-        <Input
-          id="cp-amount"
-          required
-          type="number"
-          min="1"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-        />
+        <MoneyInput id="cp-amount" required min={1} value={amount} onChange={setAmount} />
       </div>
       <PaymentModeFields value={method} onChange={setMethod} />
       <div className="space-y-2">
@@ -833,23 +827,11 @@ function EditContributionForm({
       </div>
       <div className="space-y-2">
         <Label htmlFor="ec-target">Target to collect (₦, optional)</Label>
-        <Input
-          id="ec-target"
-          type="number"
-          min="0"
-          value={target}
-          onChange={(e) => setTarget(e.target.value)}
-        />
+        <MoneyInput id="ec-target" min={0} value={target} onChange={setTarget} />
       </div>
       <div className="space-y-2">
         <Label htmlFor="ec-budget">Event budget (₦, optional)</Label>
-        <Input
-          id="ec-budget"
-          type="number"
-          min="0"
-          value={budget}
-          onChange={(e) => setBudget(e.target.value)}
-        />
+        <MoneyInput id="ec-budget" min={0} value={budget} onChange={setBudget} />
       </div>
       <label className="flex items-start gap-3 rounded-2xl border border-border px-4 py-3 text-sm">
         <Checkbox checked={acceptsPledges} onCheckedChange={(v) => setAcceptsPledges(v === true)} />
@@ -898,14 +880,7 @@ function ExpenseForm({
       </div>
       <div className="space-y-2">
         <Label htmlFor="ce-amount">Amount (₦)</Label>
-        <Input
-          id="ce-amount"
-          required
-          type="number"
-          min="1"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-        />
+        <MoneyInput id="ce-amount" required min={1} value={amount} onChange={setAmount} />
       </div>
       <PaymentModeFields value={method} onChange={setMethod} label="How was it paid for?" />
       <div className="space-y-2">

@@ -15,6 +15,7 @@ import { EmptyState, PageHeader } from "@/components/page-parts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/money-input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
@@ -265,25 +266,18 @@ function NewContributionDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="c-amount">Each person pays (₦)</Label>
-              <Input
+              <MoneyInput
                 id="c-amount"
-                type="number"
                 required={mandatory}
                 min={mandatory ? "1" : "0"}
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={setAmount}
                 placeholder="2000"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="c-target">Target total (₦, optional)</Label>
-              <Input
-                id="c-target"
-                type="number"
-                min="0"
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-              />
+              <MoneyInput id="c-target" min={0} value={target} onChange={setTarget} />
             </div>
           </div>
           <div className="space-y-2">
@@ -334,12 +328,11 @@ function NewContributionDialog({
           </label>
           <div className="space-y-2">
             <Label htmlFor="c-budget">Event budget (₦, optional)</Label>
-            <Input
+            <MoneyInput
               id="c-budget"
-              type="number"
-              min="0"
+              min={0}
               value={budget}
-              onChange={(e) => setBudget(e.target.value)}
+              onChange={setBudget}
               placeholder="How much the committee plans to spend"
             />
           </div>

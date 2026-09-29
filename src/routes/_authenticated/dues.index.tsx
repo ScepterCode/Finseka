@@ -23,6 +23,7 @@ import { EmptyState, PageHeader } from "@/components/page-parts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/money-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -213,13 +214,12 @@ function AddDueDialog({ onDone }: { onDone: () => void }) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="d-amount">Amount each person pays (₦)</Label>
-            <Input
+            <MoneyInput
               id="d-amount"
               required
-              type="number"
-              min="1"
+              min={1}
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={setAmount}
               placeholder="1000"
             />
           </div>

@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/money-input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -302,15 +303,13 @@ export function RedeemPledgeDialog({
         >
           <div className="space-y-2">
             <Label htmlFor="rp-amount">How much was received? (₦)</Label>
-            <Input
+            <MoneyInput
               id="rp-amount"
-              type="number"
-              min="1"
-              step="any"
+              min={1}
               required
               value={amount}
               aria-invalid={tooMuch}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={setAmount}
             />
             {value > 0 && (
               <p
@@ -850,15 +849,7 @@ export function AddPledgeDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="pl-amount">Amount (₦)</Label>
-              <Input
-                id="pl-amount"
-                type="number"
-                min="1"
-                step="any"
-                required
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-              />
+              <MoneyInput id="pl-amount" min={1} required value={amount} onChange={setAmount} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="pl-date">{paidNow ? "Date received" : "Date pledged"}</Label>

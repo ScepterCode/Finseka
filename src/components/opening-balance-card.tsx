@@ -9,6 +9,7 @@ import { friendlyError } from "@/lib/errors";
 import { naira, todayIso } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/money-input";
 import { Label } from "@/components/ui/label";
 
 /**
@@ -70,25 +71,11 @@ export function OpeningBalanceCard() {
       >
         <div className="space-y-2">
           <Label htmlFor="ob-cash">Cash in hand (₦)</Label>
-          <Input
-            id="ob-cash"
-            type="number"
-            min="0"
-            value={cash}
-            onChange={(e) => setCash(e.target.value)}
-            placeholder="0"
-          />
+          <MoneyInput id="ob-cash" min={0} value={cash} onChange={setCash} placeholder="0" />
         </div>
         <div className="space-y-2">
           <Label htmlFor="ob-bank">Money in the bank (₦)</Label>
-          <Input
-            id="ob-bank"
-            type="number"
-            min="0"
-            value={bank}
-            onChange={(e) => setBank(e.target.value)}
-            placeholder="0"
-          />
+          <MoneyInput id="ob-bank" min={0} value={bank} onChange={setBank} placeholder="0" />
         </div>
         <div className="space-y-2">
           <Label htmlFor="ob-date">As of</Label>

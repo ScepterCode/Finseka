@@ -28,3 +28,27 @@ export function localIso(d: Date) {
 export function todayIso() {
   return localIso(new Date());
 }
+
+/**
+ * What someone typed into a money box, reduced to a plain number string ("1,250.5" → "1250.5").
+ * Keeps digits and the first decimal point, at most two decimal places, and drops leading zeros.
+ */
+export function cleanAmount(typed: string) {
+  const kept = typed.replace(/[^\d.]/g, "");
+  const dot = kept.indexOf(".");
+  let whole = dot === -1 ? kept : kept.slice(0, dot);
+  whole = whole.replace(/^0+(?=\d)/, "");
+  if (dot === -1) return whole;
+  const cents = kept
+    .slice(dot + 1)
+    .replace(/\./g, "")
+    .slice(0, 2);
+  return `${whole || "0"}.${cents}`;
+}
+
+/** A plain number string with thousands commas for display ("1250.5" → "1,250.5"). */
+export function groupAmount(raw: string) {
+  const [whole, cents] = raw.split(".");
+  const grouped = (whole ?? "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return cents === undefined ? grouped : `${grouped}.${cents}`;
+}
