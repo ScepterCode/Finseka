@@ -11,6 +11,7 @@ import { AUTO, debtKey, type Debt } from "@/lib/debts";
 import { PaymentModeFields } from "@/components/method-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/money-input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -200,15 +201,13 @@ export function MemberPaymentDialog({
 
           <div className="space-y-2">
             <Label htmlFor="mp-amount">How much did they pay? (₦)</Label>
-            <Input
+            <MoneyInput
               id="mp-amount"
-              type="number"
-              min="1"
-              step="any"
+              min={1}
               required
               value={amount}
               aria-invalid={tooMuch}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={setAmount}
             />
             {value > 0 && (
               <p

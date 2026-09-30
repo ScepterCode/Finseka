@@ -21,6 +21,7 @@ import { matchesPerson } from "@/lib/search";
 import { EmptyState, PageHeader, StatCard } from "@/components/page-parts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/money-input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -652,14 +653,7 @@ function AddEntryDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="e-amount">Amount (₦)</Label>
-            <Input
-              id="e-amount"
-              required
-              type="number"
-              min="1"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
+            <MoneyInput id="e-amount" required min={1} value={amount} onChange={setAmount} />
           </div>
           <PaymentModeFields value={method} onChange={setMethod} />
           <div className="space-y-2">

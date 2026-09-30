@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { friendlyError } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/money-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -121,13 +122,7 @@ export function DriveDialog({ drive }: { drive?: Drive }) {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="pd-target">Target (₦, optional)</Label>
-              <Input
-                id="pd-target"
-                type="number"
-                min="0"
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-              />
+              <MoneyInput id="pd-target" min={0} value={target} onChange={setTarget} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="pd-closes">Closes on (optional)</Label>
