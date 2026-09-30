@@ -51,6 +51,9 @@ export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
 });
 
+// Must match allowed_mime_types on the org-logos bucket. SVG is left out: it can carry scripts.
+const LOGO_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+
 function SettingsPage() {
   const { orgId, org, isAdmin, refreshMe, userId } = useAuth();
   const queryClient = useQueryClient();
@@ -197,12 +200,19 @@ function SettingsPage() {
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                accept={LOGO_TYPES.join(",")}
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) uploadLogo.mutate(file);
                   e.target.value = "";
+                  if (!file) return;
+                  if (!LOGO_TYPES.includes(file.type)) {
+                    toast.error("Use a PNG, JPG, WebP or GIF picture for the logo.");
+                  } else if (file.size > 2 * 1024 * 1024) {
+                    toast.error("That picture is too big. Use one under 2 MB.");
+                  } else {
+                    uploadLogo.mutate(file);
+                  }
                 }}
               />
               <Button
