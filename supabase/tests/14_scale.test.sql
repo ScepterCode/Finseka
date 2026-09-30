@@ -23,3 +23,9 @@ SELECT tests.eq('every org_id column has an index starting with it',
 SELECT tests.eq('new SVG logos are refused; PNG, JPEG, WebP and GIF are allowed',
   (SELECT allowed_mime_types FROM storage.buckets WHERE id = 'org-logos'),
   ARRAY['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
+
+-- Without MATERIALIZED, Postgres re-prices every period once per member (30 s instead of 3 s
+-- for a 500-member organization with a daily due).
+SELECT tests.eq('standing_lines works out each period''s price once',
+  (SELECT prosrc ~ '\mp AS MATERIALIZED \(' FROM pg_proc WHERE oid = 'public.standing_lines(uuid)'::regprocedure),
+  true);

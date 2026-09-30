@@ -10,10 +10,12 @@
 //                              apply the rest to the loaded data (timed), then time them again
 //   --keep                     keep the database afterwards (its name is printed)
 //   --reuse <database>         skip loading; time the pages on a database kept earlier
+//   --small                    10 background organizations and a 500-member one (a minute to load)
 //
 // Loading takes about half an hour. Like test:db, it refuses Supabase addresses.
 import { spawnSync } from "node:child_process";
-import { readdirSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -30,6 +32,7 @@ const arg = (name) => {
 const compare = arg("--compare");
 const reuse = arg("--reuse");
 const keep = process.argv.includes("--keep") || Boolean(reuse);
+const small = process.argv.includes("--small");
 
 const dbName = reuse || `finseka_load_${process.pid}`;
 const dbUrl = new URL(adminUrl);
@@ -73,7 +76,16 @@ try {
     console.log(`${first.length} migrations applied (last: ${first.at(-1)})`);
 
     const t = Date.now();
-    console.log(psql(dbUrl.href, ["-f", dir("scripts", "load-test", "seed.sql")]).stdout.trim());
+    let seed = dir("scripts", "load-test", "seed.sql");
+    if (small) {
+      const scaled = readFileSync(seed, "utf8")
+        .replace("generate_series(1, 10000)", "generate_series(1, 10)")
+        .replace("generate_series(1, 5000)", "generate_series(1, 500)")
+        .replace("generate_series(1, 20000)", "generate_series(1, 200)");
+      seed = path.join(mkdtempSync(path.join(tmpdir(), "finseka-load-")), "seed.sql");
+      writeFileSync(seed, scaled);
+    }
+    console.log(psql(dbUrl.href, ["-f", seed]).stdout.trim());
     console.log(`loaded in ${seconds(t)}`);
   }
 

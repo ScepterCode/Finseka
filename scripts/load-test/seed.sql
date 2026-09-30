@@ -71,6 +71,32 @@ SELECT org_id, CASE WHEN g % 4 = 0 THEN 'income' ELSE 'expense' END::public.ledg
        'Manual entry ' || g, 1000 + g % 5000, '2024-01-01'::date + g % 1000, 'cash'
 FROM big, generate_series(1, 20000) g;
 
+-- Harder cases: a price rise, dues for the choir or one branch only (members outside them go
+-- through the slower "has paid towards it" check), late joiners, part and voided payments.
+INSERT INTO due_rates (org_id, due_id, amount, effective_from)
+SELECT d.org_id, d.id, 1500, '2025-06-01' FROM dues d JOIN big ON big.org_id = d.org_id WHERE d.name = 'Monthly dues';
+INSERT INTO dues (org_id, name, amount, frequency, starts_on, audience, audience_labels, audience_branch_ids,
+                  penalty_amount, penalty_grace_days)
+SELECT big.org_id, 'Choir levy', 300, 'weekly'::public.due_frequency, '2025-03-03'::date, 'labels'::public.due_audience, ARRAY['choir'], '{}'::uuid[], 50, 3 FROM big
+UNION ALL
+SELECT big.org_id, 'Branch building fund', 500, 'monthly'::public.due_frequency, '2025-01-01'::date, 'branches'::public.due_audience,
+       '{}'::text[], ARRAY[(SELECT min(id::text)::uuid FROM branches WHERE org_id = big.org_id)], 0, 0 FROM big;
+INSERT INTO due_payments (org_id, due_id, member_id, amount, channel, paid_at)
+SELECT d.org_id, d.id, m.id, d.amount, 'pos', p::date
+FROM dues d JOIN big ON big.org_id = d.org_id
+JOIN members m ON m.org_id = d.org_id AND 'choir' = ANY (m.tags)
+CROSS JOIN generate_series('2025-03-03'::date, current_date, '1 week') p
+WHERE d.name = 'Choir levy' AND random() < 0.5;
+UPDATE members SET joined_on = '2026-03-15'
+WHERE id IN (SELECT m.id FROM members m JOIN big ON big.org_id = m.org_id ORDER BY m.id LIMIT 50);
+INSERT INTO due_payments (org_id, due_id, member_id, amount, channel, paid_at)
+SELECT d.org_id, d.id, m.id, 300, 'cash', '2025-08-10'
+FROM dues d JOIN big ON big.org_id = d.org_id JOIN members m ON m.org_id = d.org_id
+WHERE d.name = 'Monthly dues' AND random() < 0.04;
+UPDATE due_payments SET voided_at = now(), void_reason = 'load test'
+WHERE id IN (SELECT dp.id FROM due_payments dp JOIN dues d ON d.id = dp.due_id JOIN big ON big.org_id = d.org_id
+             WHERE d.name = 'Weekly levy' ORDER BY dp.id LIMIT 800);
+
 RESET request.jwt.claim.sub;
 ANALYZE;
 
