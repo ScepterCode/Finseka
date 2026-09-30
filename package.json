@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:db": "node scripts/test-db.mjs"
+    "test:db": "node scripts/test-db.mjs",
+    "test:load": "node scripts/load-test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
