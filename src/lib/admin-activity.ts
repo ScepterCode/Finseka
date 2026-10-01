@@ -16,6 +16,7 @@ export const adminActions: Record<string, string> = {
   wipe_logins: "Deleted logins",
   admin_added: "Added a super admin",
   admin_removed: "Removed a super admin",
+  two_step_reset: "Reset two-step login",
 };
 
 export function describeAdminAction(a: AdminActivity) {
@@ -42,6 +43,8 @@ export function describeAdminAction(a: AdminActivity) {
       return `made ${email} a super admin`;
     case "admin_removed":
       return `removed ${email} as a super admin`;
+    case "two_step_reset":
+      return `reset the two-step login of ${email}`;
     default:
       return `${a.action.replace(/_/g, " ")} ${org}`;
   }

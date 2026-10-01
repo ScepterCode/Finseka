@@ -25,7 +25,7 @@ SELECT tests.fails('nor the activity log', 'SELECT * FROM admin_activity_page()'
 SELECT tests.fails('and cannot make anyone a super admin',
   format('SELECT grant_platform_admin(%L, %L)', :bola, :bola), 'permission denied');
 
-SELECT tests.as_user(:sam) \gset
+SELECT tests.as_user_2fa(:sam) \gset
 SELECT tests.eq('overview counts organizations, members and super admins',
   (SELECT (x ->> 'organizations') || ' ' || (x ->> 'members') || ' ' || (x ->> 'super_admins')
    FROM admin_overview() x), '2 2 1');
@@ -73,9 +73,9 @@ SELECT tests.eq('both super admins are listed, with who added Tia',
   'sam@finseka.test:-:true tia@finseka.test:sam@finseka.test:false');
 SELECT tests.fails('nobody can remove themselves', format('SELECT remove_platform_admin(%L)', :sam), 'yourself');
 
-SELECT tests.as_user(:tia) \gset
+SELECT tests.as_user_2fa(:tia) \gset
 SELECT start_support_session(:'org1', 'Helping Org One', 30) IS NOT NULL AS started \gset
-SELECT tests.as_user(:sam) \gset
+SELECT tests.as_user_2fa(:sam) \gset
 SELECT remove_platform_admin(:tia);
 SELECT tests.eq('a removed super admin is gone from the list',
   (SELECT string_agg(email, ' ') FROM admin_list_admins()), 'sam@finseka.test');

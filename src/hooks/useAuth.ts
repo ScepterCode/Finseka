@@ -24,6 +24,7 @@ type AppContext = {
   org: Org | null;
   is_admin: boolean;
   is_platform_admin: boolean;
+  is_platform_admin_member: boolean;
   support: SupportSession | null;
 };
 
@@ -37,7 +38,10 @@ type AuthValue = {
   orgId: string | null;
   org: Org | null;
   isAdmin: boolean;
+  /** A super admin with their powers: signed in with a two-step code. */
   isPlatformAdmin: boolean;
+  /** On the super admin list, whether or not this sign-in used a two-step code. */
+  isPlatformAdminMember: boolean;
   support: SupportSession | null;
   mustChangePassword: boolean;
   refreshMe: () => void;
@@ -97,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           org: (orgRes.data?.organizations as Org | null) ?? null,
           is_admin: adminRes.data === true,
           is_platform_admin: false,
+          is_platform_admin_member: false,
           support: null,
         };
       }
@@ -106,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         org: context.org,
         isAdmin: context.is_admin,
         isPlatformAdmin: context.is_platform_admin,
+        isPlatformAdminMember: context.is_platform_admin_member ?? context.is_platform_admin,
         support: context.support,
         mustChangePassword: profile?.must_change_password ?? false,
       };
@@ -126,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       org: me.data?.org ?? null,
       isAdmin: me.data?.isAdmin ?? false,
       isPlatformAdmin: me.data?.isPlatformAdmin ?? false,
+      isPlatformAdminMember: me.data?.isPlatformAdminMember ?? false,
       support: me.data?.support ?? null,
       mustChangePassword: me.data?.mustChangePassword ?? false,
       refreshMe: () => queryClient.invalidateQueries({ queryKey: ["me"] }),

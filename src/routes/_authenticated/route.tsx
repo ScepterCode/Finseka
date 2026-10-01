@@ -48,7 +48,7 @@ function AuthenticatedLayout() {
     isAdmin,
     fullName,
     mustChangePassword,
-    isPlatformAdmin,
+    isPlatformAdminMember,
     support,
   } = useAuth();
   const navigate = useNavigate();
@@ -66,10 +66,10 @@ function AuthenticatedLayout() {
   if (mustChangePassword) return <ChangePasswordScreen />;
 
   // A system admin without an organization of their own only has the System admin page.
-  if (!orgId && isPlatformAdmin && !pathname.startsWith("/admin")) {
+  if (!orgId && isPlatformAdminMember && !pathname.startsWith("/admin")) {
     return <Navigate to="/admin" replace />;
   }
-  if (!orgId && !isPlatformAdmin) return <OrganizationSetup defaultName={fullName} />;
+  if (!orgId && !isPlatformAdminMember) return <OrganizationSetup defaultName={fullName} />;
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -83,8 +83,8 @@ function AuthenticatedLayout() {
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background">
         <AppSidebar
-          orgName={org?.name ?? (isPlatformAdmin ? "System admin" : "Your organization")}
-          showSystemAdmin={isPlatformAdmin}
+          orgName={org?.name ?? (isPlatformAdminMember ? "System admin" : "Your organization")}
+          showSystemAdmin={isPlatformAdminMember}
         />
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="print-hide sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/90 px-3 backdrop-blur-md">
