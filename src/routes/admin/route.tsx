@@ -12,6 +12,7 @@ import { ArrowLeft, Loader2, LogOut, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { ConfirmButton } from "@/components/confirm";
+import { TwoStepGate } from "@/components/two-step-gate";
 
 // The system admin console: its own layout, for FinSeka super admins only.
 export const Route = createFileRoute("/admin")({
@@ -35,6 +36,7 @@ function AdminLayout() {
     loadingSession,
     loadingProfile,
     isPlatformAdmin,
+    isPlatformAdminMember,
     mustChangePassword,
     orgId,
     org,
@@ -54,7 +56,7 @@ function AdminLayout() {
   }
   if (!session) return <Navigate to="/auth" replace />;
   // A new super admin first chooses their own password (shown by the main app).
-  if (mustChangePassword || !isPlatformAdmin) return <Navigate to="/dashboard" replace />;
+  if (mustChangePassword || !isPlatformAdminMember) return <Navigate to="/dashboard" replace />;
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -100,19 +102,21 @@ function AdminLayout() {
             </ConfirmButton>
           </div>
         </div>
-        <nav className="mx-auto flex w-full max-w-6xl gap-1 overflow-x-auto px-4 pb-2 sm:px-6">
-          {nav.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              activeOptions={{ exact: item.exact }}
-              className="shrink-0 rounded-xl px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
-              activeProps={{ className: "bg-secondary font-medium text-foreground" }}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        {isPlatformAdmin && (
+          <nav className="mx-auto flex w-full max-w-6xl gap-1 overflow-x-auto px-4 pb-2 sm:px-6">
+            {nav.map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                activeOptions={{ exact: item.exact }}
+                className="shrink-0 rounded-xl px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+                activeProps={{ className: "bg-secondary font-medium text-foreground" }}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        )}
       </header>
       {support && (
         <div className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
@@ -124,7 +128,8 @@ function AdminLayout() {
         </div>
       )}
       <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-        <Outlet />
+        {/* Every console page needs a sign-in confirmed with a two-step code. */}
+        {isPlatformAdmin ? <Outlet /> : <TwoStepGate />}
       </main>
     </div>
   );

@@ -6,7 +6,7 @@ import { Copy, Loader2, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { addSuperAdmin, type AddAdminResult } from "@/lib/admin.functions";
+import { addSuperAdmin, resetSuperAdminTwoStep, type AddAdminResult } from "@/lib/admin.functions";
 import { when } from "@/lib/admin-activity";
 import { friendlyError } from "@/lib/errors";
 import { shortDate } from "@/lib/format";
@@ -55,6 +55,16 @@ function SuperAdminsPage() {
     onError: (e: Error) => toast.error(friendlyError(e)),
   });
 
+  const resetTwoStep = useServerFn(resetSuperAdminTwoStep);
+  const reset = useMutation({
+    mutationFn: async (userId: string) => resetTwoStep({ data: { userId } }),
+    onSuccess: () => {
+      toast.success("Two-step login reset. They will set it up again at their next sign-in.");
+      queryClient.invalidateQueries({ queryKey: ["admin"] });
+    },
+    onError: (e: Error) => toast.error(friendlyError(e)),
+  });
+
   const remove = useMutation({
     mutationFn: async (userId: string) => {
       const { error } = await supabase.rpc("remove_platform_admin", { _user_id: userId });
@@ -76,12 +86,13 @@ function SuperAdminsPage() {
 
       <section className="space-y-3">
         <div className="overflow-x-auto rounded-3xl border border-border bg-card shadow-soft">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="w-full min-w-[760px] text-sm">
             <thead className="border-b border-border text-left text-xs text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Email</th>
                 <th className="px-4 py-3 font-medium">Added</th>
+                <th className="px-4 py-3 font-medium">Two-step login</th>
                 <th className="px-4 py-3 font-medium">Last signed in</th>
                 <th className="px-4 py-3" />
               </tr>
@@ -99,6 +110,11 @@ function SuperAdminsPage() {
                       <span className="block text-xs">by {a.added_by_email}</span>
                     )}
                   </td>
+                  <td className="px-4 py-3">
+                    <Badge variant={a.two_step ? "default" : "secondary"}>
+                      {a.two_step ? "On" : "Not set up"}
+                    </Badge>
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {a.last_sign_in_at ? when(a.last_sign_in_at) : "Never"}
                   </td>
@@ -109,6 +125,18 @@ function SuperAdminsPage() {
                           Their activity
                         </Link>
                       </Button>
+                      {!a.is_you && a.two_step && (
+                        <ConfirmButton
+                          size="sm"
+                          variant="outline"
+                          title={`Reset ${a.email ?? "this person"}'s two-step login?`}
+                          description="Use this when they have lost their phone. Their authenticator app is removed, they are signed out everywhere, and they link a new app the next time they open System admin."
+                          confirmLabel="Yes, reset"
+                          onConfirm={() => reset.mutate(a.user_id)}
+                        >
+                          Reset two-step
+                        </ConfirmButton>
+                      )}
                       {!a.is_you && (
                         <ConfirmButton
                           size="sm"

@@ -154,3 +154,61 @@ export const addSuperAdmin = createServerFn({ method: "POST" })
     }
     return { email: data.email, password };
   });
+
+// Removes another super admin's authenticator app (e.g. a lost phone), so they set it up again at
+// their next sign-in. Supabase signs them out everywhere when a confirmed authenticator is removed.
+export const resetSuperAdminTwoStep = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { userId: string }) => {
+    const userId = String(input.userId ?? "");
+    if (!UUID.test(userId)) throw new Error("That person is not a super admin.");
+    return { userId };
+  })
+  .handler(async ({ data, context }) => {
+    const { data: isPlatformAdmin, error: checkError } = await (
+      context.supabase as unknown as UserClient
+    ).rpc("is_platform_admin");
+    if (checkError) throw new Error(checkError.message);
+    if (isPlatformAdmin !== true) throw new Error("Only FinSeka system admins can do this.");
+    if (data.userId === context.userId) {
+      throw new Error("Ask another super admin to reset your two-step login.");
+    }
+
+    // Read as the signed-in super admin, so the database checks their two-step sign-in too.
+    const { data: admins, error: adminsError } = await (
+      context.supabase as unknown as {
+        rpc: (n: "admin_list_admins") => Promise<{
+          data: { user_id: string; email: string | null }[] | null;
+          error: { message: string } | null;
+        }>;
+      }
+    ).rpc("admin_list_admins");
+    if (adminsError) throw new Error(adminsError.message);
+    const target = admins?.find((a) => a.user_id === data.userId);
+    if (!target) throw new Error("That person is not a super admin.");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: list, error: listError } = await supabaseAdmin.auth.admin.mfa.listFactors({
+      userId: data.userId,
+    });
+    if (listError) throw new Error(listError.message);
+    let removed = 0;
+    for (const f of list?.factors ?? []) {
+      const { error } = await supabaseAdmin.auth.admin.mfa.deleteFactor({
+        id: f.id,
+        userId: data.userId,
+      });
+      if (error) throw new Error(error.message);
+      removed++;
+    }
+
+    await supabaseAdmin.rpc("log_platform_action", {
+      _action: "two_step_reset",
+      _org_id: null,
+      _reason: null,
+      _details: { email: target.email, authenticators_removed: removed },
+      _admin_id: context.userId,
+    });
+    return { removed };
+  });

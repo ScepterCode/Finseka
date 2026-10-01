@@ -42,7 +42,7 @@ SELECT tests.fails('app users cannot call the wipe at all',
 SELECT tests.fails('app users cannot make themselves system admins',
   format('INSERT INTO platform_admins (user_id) VALUES (%L)', :bola), 'permission denied');
 
-SELECT tests.as_user(:sam) \gset
+SELECT tests.as_user_2fa(:sam) \gset
 SELECT tests.eq('Sam is a system admin', is_platform_admin(), true);
 SELECT tests.eq('the list shows both organizations with counts',
   (SELECT string_agg(name || ':' || members || ':' || team, ' ' ORDER BY name) FROM admin_org_list()),
@@ -110,7 +110,7 @@ RESET ROLE;
 SELECT tests.fails('a wipe needs a copy downloaded first',
   format('SELECT wipe_organization(%L, ''Org Two'', ''Closing the account'', %L)', :'org2', :sam), 'copy');
 SET LOCAL ROLE authenticated;
-SELECT tests.as_user(:sam) \gset
+SELECT tests.as_user_2fa(:sam) \gset
 SELECT tests.eq('the copy holds every kind of record',
   (SELECT jsonb_array_length(x -> 'members') || ' ' || jsonb_array_length(x -> 'due_payments') || ' ' ||
           jsonb_array_length(x -> 'pledge_payments') || ' ' || jsonb_array_length(x -> 'team') || ' ' ||

@@ -41,6 +41,25 @@ CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
 $$;
 GRANT EXECUTE ON FUNCTION auth.uid() TO anon, authenticated, service_role;
 
+-- Same definition as Supabase: every claim of the request's JWT (e.g. aal, the sign-in's assurance level).
+CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$
+  SELECT coalesce(
+    nullif(current_setting('request.jwt.claim', true), ''),
+    nullif(current_setting('request.jwt.claims', true), '')
+  )::jsonb
+$$;
+GRANT EXECUTE ON FUNCTION auth.jwt() TO anon, authenticated, service_role;
+
+-- Two-step login factors (authenticator apps), as Supabase keeps them.
+CREATE TABLE auth.mfa_factors (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  friendly_name text,
+  factor_type text NOT NULL DEFAULT 'totp',
+  status text NOT NULL DEFAULT 'verified',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE storage.buckets (
   id text PRIMARY KEY,
   name text,
@@ -65,7 +84,14 @@ GRANT USAGE ON SCHEMA tests TO anon, authenticated, service_role;
 
 -- Act as a signed-in user for the rest of the transaction (null = signed out).
 CREATE FUNCTION tests.as_user(_user_id uuid) RETURNS void LANGUAGE sql AS $$
+  SELECT set_config('request.jwt.claims', '', true);
   SELECT set_config('request.jwt.claim.sub', coalesce(_user_id::text, ''), true);
+$$;
+
+-- Act as a signed-in user who also confirmed a two-step login code (JWT aal = aal2).
+CREATE FUNCTION tests.as_user_2fa(_user_id uuid) RETURNS void LANGUAGE sql AS $$
+  SELECT set_config('request.jwt.claim.sub', _user_id::text, true);
+  SELECT set_config('request.jwt.claims', jsonb_build_object('sub', _user_id, 'aal', 'aal2')::text, true);
 $$;
 
 -- Create a Supabase user. Run as the table owner (before SET ROLE).

@@ -1093,6 +1093,8 @@ export type Database = {
       };
       is_org_admin: { Args: never; Returns: boolean };
       is_platform_admin: { Args: never; Returns: boolean };
+      is_platform_admin_member: { Args: never; Returns: boolean };
+      signed_in_with_two_steps: { Args: never; Returns: boolean };
       in_support_session: { Args: never; Returns: boolean };
       app_context: { Args: never; Returns: Json };
       admin_org_list: {
@@ -1175,6 +1177,7 @@ export type Database = {
           full_name: string | null;
           is_you: boolean;
           last_sign_in_at: string | null;
+          two_step: boolean;
           user_id: string;
         }[];
       };
@@ -1206,7 +1209,7 @@ export type Database = {
           _action: string;
           _admin_id?: string;
           _details?: Json;
-          _org_id: string;
+          _org_id: string | null;
           _reason: string | null;
         };
         Returns: undefined;
