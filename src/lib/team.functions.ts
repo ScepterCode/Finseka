@@ -12,7 +12,7 @@ export type InviteResult = {
   note: string;
 };
 
-function tempPassword() {
+export function tempPassword() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
   let out = "";
   const bytes = new Uint8Array(10);

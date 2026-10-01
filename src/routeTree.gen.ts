@@ -11,14 +11,17 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedLedgerRouteImport } from './routes/_authenticated/ledger'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminActivityRouteImport } from './routes/admin/activity'
+import { Route as AdminAdminsRouteImport } from './routes/admin/admins'
 import { Route as AuthenticatedContributionsIndexRouteImport } from './routes/_authenticated/contributions.index'
 import { Route as AuthenticatedContributionsContributionIdRouteImport } from './routes/_authenticated/contributions.$contributionId'
 import { Route as AuthenticatedDuesIndexRouteImport } from './routes/_authenticated/dues.index'
@@ -27,6 +30,8 @@ import { Route as AuthenticatedMembersIndexRouteImport } from './routes/_authent
 import { Route as AuthenticatedMembersMemberIdRouteImport } from './routes/_authenticated/members.$memberId'
 import { Route as AuthenticatedPledgesIndexRouteImport } from './routes/_authenticated/pledges.index'
 import { Route as AuthenticatedPledgesDriveIdRouteImport } from './routes/_authenticated/pledges.$driveId'
+import { Route as AdminOrganizationsIndexRouteImport } from './routes/admin/organizations.index'
+import { Route as AdminOrganizationsOrgIdRouteImport } from './routes/admin/organizations.$orgId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -37,15 +42,15 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRouteRoute = AdminRouteRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
   id: '/analytics',
@@ -76,6 +81,21 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminActivityRoute = AdminActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminAdminsRoute = AdminAdminsRouteImport.update({
+  id: '/admins',
+  path: '/admins',
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AuthenticatedContributionsIndexRoute =
   AuthenticatedContributionsIndexRouteImport.update({
@@ -123,130 +143,169 @@ const AuthenticatedPledgesDriveIdRoute =
     path: '/pledges/$driveId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AdminOrganizationsIndexRoute = AdminOrganizationsIndexRouteImport.update({
+  id: '/organizations/',
+  path: '/organizations/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminOrganizationsOrgIdRoute = AdminOrganizationsOrgIdRouteImport.update({
+  id: '/organizations/$orgId',
+  path: '/organizations/$orgId',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/admin': typeof AuthenticatedAdminRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/ledger': typeof AuthenticatedLedgerRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/admin/activity': typeof AdminActivityRoute
+  '/admin/admins': typeof AdminAdminsRoute
+  '/admin/': typeof AdminIndexRoute
   '/contributions/$contributionId': typeof AuthenticatedContributionsContributionIdRoute
   '/dues/$dueId': typeof AuthenticatedDuesDueIdRoute
   '/members/$memberId': typeof AuthenticatedMembersMemberIdRoute
   '/pledges/$driveId': typeof AuthenticatedPledgesDriveIdRoute
+  '/admin/organizations/$orgId': typeof AdminOrganizationsOrgIdRoute
   '/contributions/': typeof AuthenticatedContributionsIndexRoute
   '/dues/': typeof AuthenticatedDuesIndexRoute
   '/members/': typeof AuthenticatedMembersIndexRoute
   '/pledges/': typeof AuthenticatedPledgesIndexRoute
+  '/admin/organizations/': typeof AdminOrganizationsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/admin': typeof AuthenticatedAdminRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/history': typeof AuthenticatedHistoryRoute
   '/ledger': typeof AuthenticatedLedgerRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/admin/activity': typeof AdminActivityRoute
+  '/admin/admins': typeof AdminAdminsRoute
+  '/admin': typeof AdminIndexRoute
   '/contributions/$contributionId': typeof AuthenticatedContributionsContributionIdRoute
   '/dues/$dueId': typeof AuthenticatedDuesDueIdRoute
   '/members/$memberId': typeof AuthenticatedMembersMemberIdRoute
   '/pledges/$driveId': typeof AuthenticatedPledgesDriveIdRoute
+  '/admin/organizations/$orgId': typeof AdminOrganizationsOrgIdRoute
   '/contributions': typeof AuthenticatedContributionsIndexRoute
   '/dues': typeof AuthenticatedDuesIndexRoute
   '/members': typeof AuthenticatedMembersIndexRoute
   '/pledges': typeof AuthenticatedPledgesIndexRoute
+  '/admin/organizations': typeof AdminOrganizationsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/admin': typeof AdminRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/_authenticated/ledger': typeof AuthenticatedLedgerRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/admin/activity': typeof AdminActivityRoute
+  '/admin/admins': typeof AdminAdminsRoute
+  '/admin/': typeof AdminIndexRoute
   '/_authenticated/contributions/$contributionId': typeof AuthenticatedContributionsContributionIdRoute
   '/_authenticated/dues/$dueId': typeof AuthenticatedDuesDueIdRoute
   '/_authenticated/members/$memberId': typeof AuthenticatedMembersMemberIdRoute
   '/_authenticated/pledges/$driveId': typeof AuthenticatedPledgesDriveIdRoute
+  '/admin/organizations/$orgId': typeof AdminOrganizationsOrgIdRoute
   '/_authenticated/contributions/': typeof AuthenticatedContributionsIndexRoute
   '/_authenticated/dues/': typeof AuthenticatedDuesIndexRoute
   '/_authenticated/members/': typeof AuthenticatedMembersIndexRoute
   '/_authenticated/pledges/': typeof AuthenticatedPledgesIndexRoute
+  '/admin/organizations/': typeof AdminOrganizationsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/auth'
     | '/admin'
+    | '/auth'
     | '/analytics'
     | '/dashboard'
     | '/history'
     | '/ledger'
     | '/reports'
     | '/settings'
+    | '/admin/activity'
+    | '/admin/admins'
+    | '/admin/'
     | '/contributions/$contributionId'
     | '/dues/$dueId'
     | '/members/$memberId'
     | '/pledges/$driveId'
+    | '/admin/organizations/$orgId'
     | '/contributions/'
     | '/dues/'
     | '/members/'
     | '/pledges/'
+    | '/admin/organizations/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
-    | '/admin'
     | '/analytics'
     | '/dashboard'
     | '/history'
     | '/ledger'
     | '/reports'
     | '/settings'
+    | '/admin/activity'
+    | '/admin/admins'
+    | '/admin'
     | '/contributions/$contributionId'
     | '/dues/$dueId'
     | '/members/$memberId'
     | '/pledges/$driveId'
+    | '/admin/organizations/$orgId'
     | '/contributions'
     | '/dues'
     | '/members'
     | '/pledges'
+    | '/admin/organizations'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/admin'
     | '/auth'
-    | '/_authenticated/admin'
     | '/_authenticated/analytics'
     | '/_authenticated/dashboard'
     | '/_authenticated/history'
     | '/_authenticated/ledger'
     | '/_authenticated/reports'
     | '/_authenticated/settings'
+    | '/admin/activity'
+    | '/admin/admins'
+    | '/admin/'
     | '/_authenticated/contributions/$contributionId'
     | '/_authenticated/dues/$dueId'
     | '/_authenticated/members/$memberId'
     | '/_authenticated/pledges/$driveId'
+    | '/admin/organizations/$orgId'
     | '/_authenticated/contributions/'
     | '/_authenticated/dues/'
     | '/_authenticated/members/'
     | '/_authenticated/pledges/'
+    | '/admin/organizations/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AdminRouteRoute: typeof AdminRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
 }
 
@@ -266,19 +325,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/admin': {
-      id: '/_authenticated/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AuthenticatedAdminRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/analytics': {
       id: '/_authenticated/analytics'
@@ -321,6 +380,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/activity': {
+      id: '/admin/activity'
+      path: '/activity'
+      fullPath: '/admin/activity'
+      preLoaderRoute: typeof AdminActivityRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/admins': {
+      id: '/admin/admins'
+      path: '/admins'
+      fullPath: '/admin/admins'
+      preLoaderRoute: typeof AdminAdminsRouteImport
+      parentRoute: typeof AdminRouteRoute
     }
     '/_authenticated/contributions/': {
       id: '/_authenticated/contributions/'
@@ -378,11 +458,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPledgesDriveIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/admin/organizations/': {
+      id: '/admin/organizations/'
+      path: '/organizations'
+      fullPath: '/admin/organizations/'
+      preLoaderRoute: typeof AdminOrganizationsIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/organizations/$orgId': {
+      id: '/admin/organizations/$orgId'
+      path: '/organizations/$orgId'
+      fullPath: '/admin/organizations/$orgId'
+      preLoaderRoute: typeof AdminOrganizationsOrgIdRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
@@ -400,7 +493,6 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
@@ -421,9 +513,30 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface AdminRouteRouteChildren {
+  AdminActivityRoute: typeof AdminActivityRoute
+  AdminAdminsRoute: typeof AdminAdminsRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+  AdminOrganizationsOrgIdRoute: typeof AdminOrganizationsOrgIdRoute
+  AdminOrganizationsIndexRoute: typeof AdminOrganizationsIndexRoute
+}
+
+const AdminRouteRouteChildren: AdminRouteRouteChildren = {
+  AdminActivityRoute: AdminActivityRoute,
+  AdminAdminsRoute: AdminAdminsRoute,
+  AdminIndexRoute: AdminIndexRoute,
+  AdminOrganizationsOrgIdRoute: AdminOrganizationsOrgIdRoute,
+  AdminOrganizationsIndexRoute: AdminOrganizationsIndexRoute,
+}
+
+const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
+  AdminRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AdminRouteRoute: AdminRouteRouteWithChildren,
   AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport

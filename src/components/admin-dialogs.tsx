@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Download, Loader2, LogIn, Trash2 } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -10,9 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { wipeOrganization, type WipeResult } from "@/lib/admin.functions";
 import { fileSlug } from "@/lib/csv";
 import { friendlyError } from "@/lib/errors";
-import { shortDate, todayIso } from "@/lib/format";
-import { EmptyState, PageHeader } from "@/components/page-parts";
-import { SearchBox } from "@/components/search-box";
+import { todayIso } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,174 +30,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export const Route = createFileRoute("/_authenticated/admin")({
-  head: () => ({
-    meta: [{ title: "System admin — FinSeka" }, { name: "robots", content: "noindex" }],
-  }),
-  component: AdminPage,
-});
+export type OrgRef = { id: string; name: string };
 
-type OrgRow = {
-  id: string;
-  name: string;
-  created_at: string;
-  members: number;
-  team: number;
-  admin_emails: string | null;
-  last_activity: string | null;
-};
-
-const actionText: Record<string, string> = {
-  support_start: "opened as support",
-  support_end: "ended support session in",
-  export: "downloaded a copy of",
-  wipe: "wiped out",
-  wipe_logins: "deleted the logins of",
-};
-
-function AdminPage() {
-  const { isPlatformAdmin, loadingProfile } = useAuth();
-  const [search, setSearch] = useState("");
-  const [supportFor, setSupportFor] = useState<OrgRow | null>(null);
-  const [wipeFor, setWipeFor] = useState<OrgRow | null>(null);
-
-  const orgs = useQuery({
-    queryKey: ["admin-orgs", search.trim()],
-    enabled: isPlatformAdmin,
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("admin_org_list", {
-        ...(search.trim() ? { _search: search.trim() } : {}),
-      });
-      if (error) throw error;
-      return data as OrgRow[];
-    },
-  });
-
-  const activity = useQuery({
-    queryKey: ["admin-activity"],
-    enabled: isPlatformAdmin,
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("admin_activity", { _limit: 30 });
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  if (loadingProfile) return null;
-  if (!isPlatformAdmin) return <Navigate to="/dashboard" replace />;
-
-  return (
-    <div className="space-y-10">
-      <PageHeader
-        title="System admin"
-        subtitle="Every organization on FinSeka. Counts only; open one as support to see its records."
-      />
-
-      <section className="space-y-4">
-        <SearchBox
-          value={search}
-          onChange={setSearch}
-          placeholder="Search by organization name or admin email"
-          className="max-w-md"
-        />
-        {orgs.isLoading ? (
-          <div className="grid place-items-center py-16">
-            <Loader2 className="size-6 animate-spin text-primary" />
-          </div>
-        ) : (orgs.data ?? []).length === 0 ? (
-          <EmptyState title="No organizations found" hint="Try another name or email." />
-        ) : (
-          <div className="overflow-x-auto rounded-3xl border border-border bg-card shadow-soft">
-            <table className="w-full min-w-[720px] text-sm">
-              <thead className="border-b border-border text-left text-xs text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Organization</th>
-                  <th className="px-4 py-3 font-medium">Admins</th>
-                  <th className="px-4 py-3 text-right font-medium">Members</th>
-                  <th className="px-4 py-3 text-right font-medium">Team</th>
-                  <th className="px-4 py-3 font-medium">Last activity</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {(orgs.data ?? []).map((o) => (
-                  <tr key={o.id}>
-                    <td className="px-4 py-3">
-                      <span className="block font-medium">{o.name}</span>
-                      <span className="block text-xs text-muted-foreground">
-                        Joined {shortDate(o.created_at)}
-                      </span>
-                    </td>
-                    <td className="max-w-[220px] truncate px-4 py-3 text-muted-foreground">
-                      {o.admin_emails ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums">{o.members}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">{o.team}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {o.last_activity ? shortDate(o.last_activity) : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        <Button size="sm" variant="outline" onClick={() => setSupportFor(o)}>
-                          <LogIn className="size-4" /> Open as support
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => setWipeFor(o)}
-                        >
-                          <Trash2 className="size-4" /> Wipe out
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        {(orgs.data ?? []).length === 200 && (
-          <p className="text-xs text-muted-foreground">
-            Showing the newest 200. Search to find others.
-          </p>
-        )}
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="font-display text-lg font-semibold">Recent admin activity</h2>
-        {(activity.data ?? []).length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nothing yet.</p>
-        ) : (
-          <ul className="divide-y divide-border overflow-hidden rounded-3xl border border-border bg-card text-sm shadow-soft">
-            {(activity.data ?? []).map((a) => (
-              <li key={a.id} className="px-5 py-3">
-                <span className="font-medium">{a.admin_email ?? "A system admin"}</span>{" "}
-                {actionText[a.action] ?? a.action}{" "}
-                <span className="font-medium">{a.org_name ?? "an organization"}</span>
-                {a.reason && <span className="text-muted-foreground"> — {a.reason}</span>}
-                <span className="block text-xs text-muted-foreground">
-                  {new Date(a.at).toLocaleString("en-NG", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <SupportDialog org={supportFor} onClose={() => setSupportFor(null)} />
-      <WipeDialog org={wipeFor} onClose={() => setWipeFor(null)} />
-    </div>
-  );
-}
-
-function SupportDialog({ org, onClose }: { org: OrgRow | null; onClose: () => void }) {
+/** Starts a support session in an organization and takes the super admin into its app. */
+export function SupportDialog({ org, onClose }: { org: OrgRef | null; onClose: () => void }) {
   const { refreshMe } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -283,7 +117,16 @@ function SupportDialog({ org, onClose }: { org: OrgRow | null; onClose: () => vo
   );
 }
 
-function WipeDialog({ org, onClose }: { org: OrgRow | null; onClose: () => void }) {
+/** Downloads a copy, then wipes the organization out once its name is typed and a reason given. */
+export function WipeDialog({
+  org,
+  onClose,
+  onWiped,
+}: {
+  org: OrgRef | null;
+  onClose: () => void;
+  onWiped?: () => void;
+}) {
   const queryClient = useQueryClient();
   const wipe = useServerFn(wipeOrganization);
   const [reason, setReason] = useState("");
@@ -292,11 +135,13 @@ function WipeDialog({ org, onClose }: { org: OrgRow | null; onClose: () => void 
   const [result, setResult] = useState<WipeResult | null>(null);
 
   function reset() {
+    const wasWiped = !!result;
     setReason("");
     setTyped("");
     setDownloaded(false);
     setResult(null);
     onClose();
+    if (wasWiped) onWiped?.();
   }
 
   const download = useMutation({
@@ -322,8 +167,7 @@ function WipeDialog({ org, onClose }: { org: OrgRow | null; onClose: () => void 
       wipe({ data: { orgId: org!.id, confirmName: typed, reason: reason.trim() } }),
     onSuccess: (r) => {
       setResult(r);
-      queryClient.invalidateQueries({ queryKey: ["admin-orgs"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-activity"] });
+      queryClient.invalidateQueries({ queryKey: ["admin"] });
     },
     onError: (e: Error) => toast.error(friendlyError(e)),
   });
@@ -343,7 +187,7 @@ function WipeDialog({ org, onClose }: { org: OrgRow | null; onClose: () => void 
                 {result.loginsDeleted === 1 ? " was" : "s were"} deleted, so those emails can sign
                 up again.
                 {result.loginsFailed > 0 &&
-                  ` ${result.loginsFailed} login(s) could not be deleted; check the admin activity.`}
+                  ` ${result.loginsFailed} login(s) could not be deleted; check the activity log.`}
               </DialogDescription>
             </DialogHeader>
             <Button size="lg" className="w-full" onClick={reset}>
@@ -367,7 +211,7 @@ function WipeDialog({ org, onClose }: { org: OrgRow | null; onClose: () => void 
               }}
             >
               <div className="space-y-2">
-                <Label htmlFor="wipe-reason">Why? (kept in the admin activity)</Label>
+                <Label htmlFor="wipe-reason">Why? (kept in the activity log)</Label>
                 <Textarea
                   id="wipe-reason"
                   required

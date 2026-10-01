@@ -1135,6 +1135,72 @@ export type Database = {
       };
       end_support_session: { Args: never; Returns: undefined };
       admin_export_org: { Args: { _org_id: string }; Returns: Json };
+      admin_overview: { Args: never; Returns: Json };
+      admin_orgs: {
+        Args: { _limit?: number; _offset?: number; _search?: string; _sort?: string };
+        Returns: {
+          admin_emails: string | null;
+          created_at: string;
+          id: string;
+          last_activity: string | null;
+          members: number;
+          name: string;
+          team: number;
+          total_count: number;
+        }[];
+      };
+      admin_org_detail: { Args: { _org_id: string }; Returns: Json };
+      admin_org_history: {
+        Args: { _limit?: number; _offset?: number; _org_id: string };
+        Returns: {
+          action: string;
+          actor_id: string | null;
+          actor_label: string | null;
+          at: string;
+          id: number;
+          new_row: Json | null;
+          old_row: Json | null;
+          org_id: string;
+          row_id: string | null;
+          table_name: string;
+        }[];
+      };
+      admin_org_names: { Args: { _org_id: string }; Returns: { id: string; name: string }[] };
+      admin_list_admins: {
+        Args: never;
+        Returns: {
+          added_at: string;
+          added_by_email: string | null;
+          email: string | null;
+          full_name: string | null;
+          is_you: boolean;
+          last_sign_in_at: string | null;
+          user_id: string;
+        }[];
+      };
+      grant_platform_admin: { Args: { _by: string; _user_id: string }; Returns: undefined };
+      remove_platform_admin: { Args: { _user_id: string }; Returns: undefined };
+      admin_activity_page: {
+        Args: {
+          _action?: string;
+          _admin_id?: string;
+          _limit?: number;
+          _offset?: number;
+          _org_id?: string;
+        };
+        Returns: {
+          action: string;
+          admin_email: string | null;
+          admin_id: string | null;
+          at: string;
+          details: Json | null;
+          id: number;
+          org_id: string | null;
+          org_name: string | null;
+          reason: string | null;
+          total_count: number;
+        }[];
+      };
       log_platform_action: {
         Args: {
           _action: string;
