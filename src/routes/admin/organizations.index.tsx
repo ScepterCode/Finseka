@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
+import { friendlyError } from "@/lib/errors";
 import { shortDate } from "@/lib/format";
 import { EmptyState, PageHeader } from "@/components/page-parts";
 import { SearchBox } from "@/components/search-box";
@@ -84,6 +85,11 @@ function OrganizationsPage() {
         </Select>
       </div>
 
+      {orgs.isError && (
+        <p className="rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          This list could not be loaded: {friendlyError(orgs.error)}
+        </p>
+      )}
       {orgs.isLoading ? (
         <div className="grid place-items-center py-16">
           <Loader2 className="size-6 animate-spin text-primary" />

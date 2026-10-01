@@ -23,7 +23,7 @@ GRANT USAGE ON SCHEMA public, auth, storage TO anon, authenticated, service_role
 
 CREATE TABLE auth.users (
   id uuid PRIMARY KEY,
-  email text,
+  email character varying(255),
   aud text,
   role text,
   instance_id uuid,
