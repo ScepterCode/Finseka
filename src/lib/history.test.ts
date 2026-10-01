@@ -20,6 +20,18 @@ const entry = (e: Partial<Entry>): Entry => ({
 });
 
 describe("describeChange", () => {
+  it("describes FinSeka support opening and leaving an organization", () => {
+    const start = entry({
+      table_name: "support_access",
+      action: "start",
+      new_row: { reason: "Bola asked for help" },
+    });
+    expect(describeChange(start, names)).toBe("opened your records to help — Bola asked for help");
+    expect(describeChange({ ...start, action: "end" }, names)).toBe(
+      "finished working in your records",
+    );
+  });
+
   it("describes a dues payment", () => {
     const text = describeChange(
       entry({

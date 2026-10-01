@@ -12,6 +12,21 @@ type Org = {
   opening_balance_set: boolean;
 };
 
+/** A FinSeka system admin working inside an organization for a limited time. */
+export type SupportSession = {
+  org_id: string;
+  reason: string;
+  started_at: string;
+  expires_at: string;
+};
+
+type AppContext = {
+  org: Org | null;
+  is_admin: boolean;
+  is_platform_admin: boolean;
+  support: SupportSession | null;
+};
+
 type AuthValue = {
   session: Session | null;
   userId: string | null;
@@ -22,6 +37,8 @@ type AuthValue = {
   orgId: string | null;
   org: Org | null;
   isAdmin: boolean;
+  isPlatformAdmin: boolean;
+  support: SupportSession | null;
   mustChangePassword: boolean;
   refreshMe: () => void;
 };
@@ -52,26 +69,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryKey: ["me", userId],
     enabled: !!userId,
     queryFn: async () => {
-      const [profileRes, adminRes] = await Promise.all([
+      const [profileRes, contextRes] = await Promise.all([
         supabase
           .from("profiles")
-          .select(
-            "id, org_id, full_name, phone, must_change_password, organizations(id, name, logo_url, opening_balance_set)",
-          )
+          .select("id, full_name, must_change_password")
           .eq("id", userId!)
           .maybeSingle(),
-        // Admin rights are per organization, so ask the database rather than reading role rows.
-        supabase.rpc("is_org_admin"),
+        // The organization comes from the database, not the profile: a system admin in a
+        // support session works in another organization, and admin rights are per organization.
+        supabase.rpc("app_context"),
       ]);
       const profile = profileRes.data;
+      let context = contextRes.data as unknown as AppContext;
+      if (contextRes.error) {
+        // Before the system-admin migration is applied, app_context does not exist yet:
+        // read the organization the way the app did before, so either order of deploy works.
+        if (contextRes.error.code !== "PGRST202") throw contextRes.error;
+        const [orgRes, adminRes] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("organizations(id, name, logo_url, opening_balance_set)")
+            .eq("id", userId!)
+            .maybeSingle(),
+          supabase.rpc("is_org_admin"),
+        ]);
+        context = {
+          org: (orgRes.data?.organizations as Org | null) ?? null,
+          is_admin: adminRes.data === true,
+          is_platform_admin: false,
+          support: null,
+        };
+      }
       return {
         fullName: profile?.full_name ?? "",
-        orgId: profile?.org_id ?? null,
-        org: (profile?.organizations as Org | null) ?? null,
-        isAdmin: adminRes.data === true,
+        orgId: context.org?.id ?? null,
+        org: context.org,
+        isAdmin: context.is_admin,
+        isPlatformAdmin: context.is_platform_admin,
+        support: context.support,
         mustChangePassword: profile?.must_change_password ?? false,
       };
     },
+    // A support session ends on its own; check now and then so the app notices.
+    refetchInterval: (query) => (query.state.data?.support ? 60_000 : false),
   });
 
   const value = useMemo<AuthValue>(
@@ -85,6 +125,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       orgId: me.data?.orgId ?? null,
       org: me.data?.org ?? null,
       isAdmin: me.data?.isAdmin ?? false,
+      isPlatformAdmin: me.data?.isPlatformAdmin ?? false,
+      support: me.data?.support ?? null,
       mustChangePassword: me.data?.mustChangePassword ?? false,
       refreshMe: () => queryClient.invalidateQueries({ queryKey: ["me"] }),
     }),

@@ -63,7 +63,7 @@ function HistoryPage() {
     queryFn: async ({ pageParam }) => {
       const { data, error } = await supabase
         .from("audit_log")
-        .select("id, actor_id, table_name, action, old_row, new_row, at")
+        .select("id, actor_id, actor_label, table_name, action, old_row, new_row, at")
         .order("at", { ascending: false })
         .order("id", { ascending: false })
         .range(pageParam, pageParam + PAGE_SIZE - 1);
@@ -100,7 +100,10 @@ function HistoryPage() {
               <span className="min-w-0 flex-1">
                 <span className="block text-sm">
                   <span className="font-semibold">
-                    {e.actor_id ? (nameMap.get(e.actor_id) ?? "A former team member") : "FinSeka"}
+                    {e.actor_label ??
+                      (e.actor_id
+                        ? (nameMap.get(e.actor_id) ?? "A former team member")
+                        : "FinSeka")}
                   </span>{" "}
                   {describeChange(e, nameMap)}
                 </span>

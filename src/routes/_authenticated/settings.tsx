@@ -87,6 +87,7 @@ function SettingsPage() {
           supabase
             .from("profiles")
             .select("id, full_name, phone")
+            .eq("org_id", orgId!)
             .order("full_name")
             .order("id")
             .range(from, to),
