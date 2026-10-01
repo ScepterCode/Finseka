@@ -10,6 +10,7 @@ import {
   ChartColumn,
   History,
   Settings,
+  ShieldAlert,
   Wallet,
 } from "lucide-react";
 
@@ -39,7 +40,13 @@ const items = [
   { title: "Settings & Admin", url: "/settings", icon: Settings },
 ] as const;
 
-export function AppSidebar({ orgName }: { orgName: string }) {
+export function AppSidebar({
+  orgName,
+  showSystemAdmin,
+}: {
+  orgName: string;
+  showSystemAdmin: boolean;
+}) {
   const { state, setOpen, setOpenMobile, isMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -89,6 +96,27 @@ export function AppSidebar({ orgName }: { orgName: string }) {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        {showSystemAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>FinSeka staff</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname.startsWith("/admin")}
+                    tooltip="System admin"
+                  >
+                    <Link to="/admin" className="flex items-center gap-2" onClick={closeAfterNav}>
+                      <ShieldAlert className="size-4" />
+                      {!collapsed && <span>System admin</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
     </Sidebar>
   );

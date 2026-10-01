@@ -12,6 +12,7 @@ export type Database = {
         Row: {
           action: string;
           actor_id: string | null;
+          actor_label: string | null;
           at: string;
           id: number;
           new_row: Json | null;
@@ -23,6 +24,7 @@ export type Database = {
         Insert: {
           action: string;
           actor_id?: string | null;
+          actor_label?: string | null;
           at?: string;
           id?: number;
           new_row?: Json | null;
@@ -34,6 +36,7 @@ export type Database = {
         Update: {
           action?: string;
           actor_id?: string | null;
+          actor_label?: string | null;
           at?: string;
           id?: number;
           new_row?: Json | null;
@@ -1089,6 +1092,63 @@ export type Database = {
         Returns: boolean;
       };
       is_org_admin: { Args: never; Returns: boolean };
+      is_platform_admin: { Args: never; Returns: boolean };
+      in_support_session: { Args: never; Returns: boolean };
+      app_context: { Args: never; Returns: Json };
+      admin_org_list: {
+        Args: { _search?: string };
+        Returns: {
+          admin_emails: string | null;
+          created_at: string;
+          id: string;
+          last_activity: string | null;
+          members: number;
+          name: string;
+          team: number;
+        }[];
+      };
+      admin_activity: {
+        Args: { _limit?: number };
+        Returns: {
+          action: string;
+          admin_email: string | null;
+          admin_id: string | null;
+          at: string;
+          details: Json | null;
+          id: number;
+          org_id: string | null;
+          org_name: string | null;
+          reason: string | null;
+        }[];
+      };
+      start_support_session: {
+        Args: { _minutes?: number; _org_id: string; _reason: string };
+        Returns: {
+          admin_id: string;
+          ended_at: string | null;
+          expires_at: string;
+          id: string;
+          org_id: string;
+          reason: string;
+          started_at: string;
+        };
+      };
+      end_support_session: { Args: never; Returns: undefined };
+      admin_export_org: { Args: { _org_id: string }; Returns: Json };
+      log_platform_action: {
+        Args: {
+          _action: string;
+          _admin_id?: string;
+          _details?: Json;
+          _org_id: string;
+          _reason: string | null;
+        };
+        Returns: undefined;
+      };
+      wipe_organization: {
+        Args: { _admin_id: string; _confirm_name: string; _org_id: string; _reason: string };
+        Returns: Json;
+      };
       pay_member_debts: {
         Args: {
           _amount: number;

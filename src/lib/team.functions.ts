@@ -34,6 +34,9 @@ type UserClient = {
 };
 
 async function requireAdminOrg(supabase: UserClient, userId: string) {
+  const { data: inSupportSession } = await supabase.rpc("in_support_session");
+  if (inSupportSession === true)
+    throw new Error("Team changes cannot be made from a support session.");
   const { data: profile } = await supabase
     .from("profiles")
     .select("org_id")

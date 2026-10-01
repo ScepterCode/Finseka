@@ -27,6 +27,8 @@ type Row = {
 export type Entry = {
   id: number;
   actor_id: string | null;
+  /** Set when FinSeka support made the change, e.g. "FinSeka support — Ada". */
+  actor_label?: string | null;
   table_name: string;
   action: string;
   old_row: Row | null;
@@ -142,6 +144,10 @@ export function describeChange(e: Entry, names: Map<string, string>) {
       return e.action === "insert"
         ? "created the organization"
         : `changed the organization${edited}`;
+    case "support_access":
+      return e.action === "start"
+        ? `opened your records to help — ${String(row["reason"] ?? "")}`
+        : "finished working in your records";
     case "user_roles":
       if (e.action === "insert")
         return `gave ${nameOf(row.user_id) ?? "someone"} ${String(row.role)} access`;

@@ -1,8 +1,15 @@
 import { useState } from "react";
-import { createFileRoute, Navigate, Outlet, useNavigate, useRouter } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Navigate,
+  Outlet,
+  useNavigate,
+  useRouter,
+  useRouterState,
+} from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, LogOut } from "lucide-react";
+import { Loader2, LogOut, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import { friendlyError } from "@/lib/errors";
@@ -41,10 +48,13 @@ function AuthenticatedLayout() {
     isAdmin,
     fullName,
     mustChangePassword,
+    isPlatformAdmin,
+    support,
   } = useAuth();
   const navigate = useNavigate();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const pathname = useRouterState({ select: (st) => st.location.pathname });
 
   if (loadingSession) return <FullScreenLoader />;
 
@@ -55,7 +65,11 @@ function AuthenticatedLayout() {
 
   if (mustChangePassword) return <ChangePasswordScreen />;
 
-  if (!orgId) return <OrganizationSetup defaultName={fullName} />;
+  // A system admin without an organization of their own only has the System admin page.
+  if (!orgId && isPlatformAdmin && !pathname.startsWith("/admin")) {
+    return <Navigate to="/admin" replace />;
+  }
+  if (!orgId && !isPlatformAdmin) return <OrganizationSetup defaultName={fullName} />;
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -68,16 +82,21 @@ function AuthenticatedLayout() {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background">
-        <AppSidebar orgName={org?.name ?? "Your organization"} />
+        <AppSidebar
+          orgName={org?.name ?? (isPlatformAdmin ? "System admin" : "Your organization")}
+          showSystemAdmin={isPlatformAdmin}
+        />
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="print-hide sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/90 px-3 backdrop-blur-md">
             <SidebarTrigger />
             <span className="truncate font-display text-base font-semibold">
               {org?.name ?? "FinSeka"}
             </span>
-            <Badge variant={isAdmin ? "default" : "secondary"} className="ml-1">
-              {isAdmin ? "Admin" : "Viewer"}
-            </Badge>
+            {orgId && (
+              <Badge variant={isAdmin ? "default" : "secondary"} className="ml-1">
+                {support ? "Support" : isAdmin ? "Admin" : "Viewer"}
+              </Badge>
+            )}
             <ConfirmButton
               variant="outline"
               size="sm"
@@ -90,12 +109,57 @@ function AuthenticatedLayout() {
               <LogOut className="size-4" /> <span className="hidden sm:inline">Sign out</span>
             </ConfirmButton>
           </header>
+          {support && <SupportBanner orgName={org?.name ?? "this organization"} />}
           <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
             <Outlet />
           </main>
         </div>
       </div>
     </SidebarProvider>
+  );
+}
+
+// Shown on every page while a system admin works inside an organization.
+function SupportBanner({ orgName }: { orgName: string }) {
+  const { support, refreshMe } = useAuth();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const end = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc("end_support_session");
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      await queryClient.cancelQueries();
+      queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
+      refreshMe();
+      toast.success("Support session ended");
+      navigate({ to: "/admin" });
+    },
+    onError: (e: Error) => toast.error(friendlyError(e)),
+  });
+  if (!support) return null;
+  const ends = new Date(support.expires_at).toLocaleTimeString("en-NG", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return (
+    <div className="print-hide flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+      <ShieldAlert className="size-4 shrink-0" aria-hidden />
+      <span className="min-w-0 flex-1">
+        You are working inside <strong>{orgName}</strong> as FinSeka support. Changes are recorded
+        under your name. Ends at {ends}.
+      </span>
+      <Button
+        size="sm"
+        variant="outline"
+        className="border-amber-400 bg-transparent"
+        disabled={end.isPending}
+        onClick={() => end.mutate()}
+      >
+        {end.isPending && <Loader2 className="size-4 animate-spin" />} End session
+      </Button>
+    </div>
   );
 }
 
