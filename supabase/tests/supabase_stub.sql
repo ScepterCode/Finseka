@@ -26,7 +26,10 @@ CREATE TABLE auth.users (
   email text,
   aud text,
   role text,
-  instance_id uuid
+  instance_id uuid,
+  created_at timestamptz DEFAULT now(),
+  last_sign_in_at timestamptz,
+  raw_app_meta_data jsonb DEFAULT '{}'
 );
 
 -- Same definition as Supabase: the user id comes from the request's JWT claims.

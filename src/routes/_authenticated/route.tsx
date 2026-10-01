@@ -130,11 +130,13 @@ function SupportBanner({ orgName }: { orgName: string }) {
       if (error) throw error;
     },
     onSuccess: async () => {
+      const orgId = support?.org_id;
       await queryClient.cancelQueries();
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
       refreshMe();
       toast.success("Support session ended");
-      navigate({ to: "/admin" });
+      if (orgId) navigate({ to: "/admin/organizations/$orgId", params: { orgId } });
+      else navigate({ to: "/admin" });
     },
     onError: (e: Error) => toast.error(friendlyError(e)),
   });

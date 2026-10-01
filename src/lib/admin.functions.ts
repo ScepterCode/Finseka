@@ -88,3 +88,69 @@ export const wipeOrganization = createServerFn({ method: "POST" })
       logoFilesDeleted,
     };
   });
+
+export type AddAdminResult = {
+  email: string;
+  /** Temporary password for a brand-new login; null when an existing login was made a super admin. */
+  password: string | null;
+};
+
+// Makes someone a super admin. An existing FinSeka login (including Google sign-in) keeps its way of
+// signing in; for a new email a login is created with a temporary password, changed on first sign-in.
+export const addSuperAdmin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { email: string; fullName: string }) => {
+    const email = String(input.email ?? "")
+      .trim()
+      .toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Enter a valid email address.");
+    return { email, fullName: String(input.fullName ?? "").trim() };
+  })
+  .handler(async ({ data, context }): Promise<AddAdminResult> => {
+    const { data: isPlatformAdmin, error: checkError } = await (
+      context.supabase as unknown as UserClient
+    ).rpc("is_platform_admin");
+    if (checkError) throw new Error(checkError.message);
+    if (isPlatformAdmin !== true) throw new Error("Only FinSeka system admins can do this.");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: existingId, error: lookupError } = await supabaseAdmin.rpc("user_id_for_email", {
+      _email: data.email,
+    });
+    if (lookupError) throw new Error(lookupError.message);
+
+    let userId = existingId as string | null;
+    let password: string | null = null;
+    if (!userId) {
+      if (data.fullName.length < 2) throw new Error("Enter the person's name.");
+      const { tempPassword } = await import("@/lib/team.functions");
+      password = tempPassword();
+      const created = await supabaseAdmin.auth.admin.createUser({
+        email: data.email,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: data.fullName },
+      });
+      if (created.error || !created.data.user) {
+        throw new Error(created.error?.message ?? "Could not create that account.");
+      }
+      userId = created.data.user.id;
+      const { error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .upsert({ id: userId, full_name: data.fullName, must_change_password: true });
+      if (profileError) {
+        await supabaseAdmin.auth.admin.deleteUser(userId);
+        throw new Error(profileError.message);
+      }
+    }
+
+    const { error } = await supabaseAdmin.rpc("grant_platform_admin", {
+      _user_id: userId,
+      _by: context.userId,
+    });
+    if (error) {
+      if (password) await supabaseAdmin.auth.admin.deleteUser(userId);
+      throw new Error(error.message);
+    }
+    return { email: data.email, password };
+  });
