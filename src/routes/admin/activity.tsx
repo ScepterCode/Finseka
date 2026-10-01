@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { adminActions, describeAdminAction, when } from "@/lib/admin-activity";
+import { friendlyError } from "@/lib/errors";
 import { EmptyState, PageHeader } from "@/components/page-parts";
 import { Button } from "@/components/ui/button";
 import {
@@ -115,6 +116,11 @@ function ActivityPage() {
         )}
       </div>
 
+      {log.isError && (
+        <p className="rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          This list could not be loaded: {friendlyError(log.error)}
+        </p>
+      )}
       {log.isLoading ? (
         <div className="grid place-items-center py-16">
           <Loader2 className="size-6 animate-spin text-primary" />

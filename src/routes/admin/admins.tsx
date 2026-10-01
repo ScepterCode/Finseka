@@ -85,6 +85,12 @@ function SuperAdminsPage() {
       />
 
       <section className="space-y-3">
+        {admins.isError && (
+          <p className="rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+            This list could not be loaded: {friendlyError(admins.error)}
+          </p>
+        )}
+
         <div className="overflow-x-auto rounded-3xl border border-border bg-card shadow-soft">
           <table className="w-full min-w-[760px] text-sm">
             <thead className="border-b border-border text-left text-xs text-muted-foreground">
