@@ -98,7 +98,7 @@ function daysAgoIso(days: number) {
 }
 
 function LedgerPage() {
-  const { orgId, isAdmin, org } = useAuth();
+  const { orgId, isAdmin, org, canWrite } = useAuth();
   const queryClient = useQueryClient();
   const [range, setRange] = useState<string>("7");
   const [from, setFrom] = useState(daysAgoIso(7));
@@ -271,24 +271,33 @@ function LedgerPage() {
         subtitle="Everything that entered and left the purse — dues and contributions land here automatically."
         action={
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              size="lg"
-              className="gap-2"
-              disabled={exportCsv.isPending}
-              onClick={() => exportCsv.mutate()}
-            >
-              {exportCsv.isPending ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Download className="size-4" />
-              )}
-              Download CSV
-            </Button>
-            <Button variant="outline" size="lg" className="gap-2" onClick={() => window.print()}>
-              <Printer className="size-4" />
-              Print
-            </Button>
+            {canWrite && (
+              <>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="gap-2"
+                  disabled={exportCsv.isPending}
+                  onClick={() => exportCsv.mutate()}
+                >
+                  {exportCsv.isPending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Download className="size-4" />
+                  )}
+                  Download CSV
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="gap-2"
+                  onClick={() => window.print()}
+                >
+                  <Printer className="size-4" />
+                  Print
+                </Button>
+              </>
+            )}
             {isAdmin && (
               <AddEntryDialog
                 members={members.data ?? []}

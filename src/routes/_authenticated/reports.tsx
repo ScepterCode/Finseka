@@ -54,7 +54,7 @@ const monthNames = [
 ];
 
 function ReportsPage() {
-  const { orgId, org } = useAuth();
+  const { orgId, org, canWrite } = useAuth();
   const thisYear = new Date().getFullYear();
   const [year, setYear] = useState(String(thisYear));
   const [month, setMonth] = useState("all");
@@ -214,14 +214,16 @@ function ReportsPage() {
               <TabsTrigger value="contributions">Contributions</TabsTrigger>
               <TabsTrigger value="year">Year-end</TabsTrigger>
             </TabsList>
-            <div className="print-hide mt-3 flex flex-wrap gap-2">
-              <Button variant="outline" className="gap-2" onClick={() => window.print()}>
-                <Printer className="size-4" /> Print
-              </Button>
-              <Button variant="outline" className="gap-2" onClick={exportCsv}>
-                <Download className="size-4" /> Download CSV
-              </Button>
-            </div>
+            {canWrite && (
+              <div className="print-hide mt-3 flex flex-wrap gap-2">
+                <Button variant="outline" className="gap-2" onClick={() => window.print()}>
+                  <Printer className="size-4" /> Print
+                </Button>
+                <Button variant="outline" className="gap-2" onClick={exportCsv}>
+                  <Download className="size-4" /> Download CSV
+                </Button>
+              </div>
+            )}
 
             <TabsContent
               value="statement"

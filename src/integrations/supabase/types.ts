@@ -47,6 +47,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      org_billing: {
+        Row: {
+          auto_renew_cancelled_at: string | null;
+          free_plan: boolean;
+          org_id: string;
+          paid_until: string | null;
+          provider: string | null;
+          provider_email: string | null;
+          provider_subscription_id: string | null;
+          trial_ends_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          auto_renew_cancelled_at?: string | null;
+          free_plan?: boolean;
+          org_id?: string;
+          paid_until?: string | null;
+          provider?: string | null;
+          provider_email?: string | null;
+          provider_subscription_id?: string | null;
+          trial_ends_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          auto_renew_cancelled_at?: string | null;
+          free_plan?: boolean;
+          org_id?: string;
+          paid_until?: string | null;
+          provider?: string | null;
+          provider_email?: string | null;
+          provider_subscription_id?: string | null;
+          trial_ends_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       branches: {
         Row: {
           created_at: string;
@@ -1138,6 +1174,65 @@ export type Database = {
       end_support_session: { Args: never; Returns: undefined };
       admin_export_org: { Args: { _org_id: string }; Returns: Json };
       admin_overview: { Args: never; Returns: Json };
+      admin_billing_overview: { Args: never; Returns: Json };
+      admin_org_billing: { Args: { _org_id: string }; Returns: Json };
+      admin_extend_trial: {
+        Args: { _days: number; _org_id: string; _reason: string };
+        Returns: undefined;
+      };
+      admin_record_payment: {
+        Args: {
+          _amount: number;
+          _months: number;
+          _note: string;
+          _org_id: string;
+          _reference: string;
+        };
+        Returns: Json;
+      };
+      admin_set_free_plan: {
+        Args: { _free: boolean; _org_id: string; _reason: string };
+        Returns: undefined;
+      };
+      can_manage_billing: { Args: never; Returns: boolean };
+      org_billing_payments: {
+        Args: never;
+        Returns: {
+          amount: number;
+          covers_from: string;
+          covers_until: string;
+          currency: string;
+          id: string;
+          months: number;
+          note: string | null;
+          paid_at: string;
+          provider: string;
+        }[];
+      };
+      record_subscription_payment: {
+        Args: {
+          _amount: number;
+          _currency: string;
+          _months: number;
+          _note?: string;
+          _org_id: string;
+          _paid_at?: string;
+          _provider: string;
+          _provider_email?: string;
+          _provider_ref: string;
+          _raw?: Json;
+          _recorded_by?: string;
+          _subscription_id?: string;
+        };
+        Returns: Json;
+      };
+      create_billing_checkout: {
+        Args: { _by: string; _email: string; _org_id: string; _tx_ref: string };
+        Returns: undefined;
+      };
+      org_for_checkout: { Args: { _tx_ref: string }; Returns: string | null };
+      org_for_payer_email: { Args: { _email: string }; Returns: string | null };
+      mark_auto_renew_cancelled: { Args: { _org_id: string }; Returns: undefined };
       admin_orgs: {
         Args: { _limit?: number; _offset?: number; _search?: string; _sort?: string };
         Returns: {
@@ -1148,6 +1243,7 @@ export type Database = {
           members: number;
           name: string;
           team: number;
+          billing_status: string | null;
           total_count: number;
         }[];
       };

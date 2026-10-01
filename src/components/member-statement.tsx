@@ -1,5 +1,6 @@
 import { MessageCircle, Printer } from "lucide-react";
 
+import { useAuth } from "@/hooks/useAuth";
 import { naira, shortDate } from "@/lib/format";
 import { statementMessage, type StatementEntry } from "@/lib/statement";
 import { whatsappLink } from "@/lib/whatsapp";
@@ -20,6 +21,7 @@ export function MemberStatement({
   phone: string | null;
   orgName: string;
 }) {
+  const { canWrite } = useAuth();
   if (entries.length === 0) {
     return (
       <EmptyState
@@ -32,9 +34,11 @@ export function MemberStatement({
   return (
     <div className="space-y-4">
       <div className="print-hide flex flex-wrap gap-2">
-        <Button variant="outline" className="gap-2" onClick={() => window.print()}>
-          <Printer className="size-4" /> Print statement
-        </Button>
+        {canWrite && (
+          <Button variant="outline" className="gap-2" onClick={() => window.print()}>
+            <Printer className="size-4" /> Print statement
+          </Button>
+        )}
         <Button asChild variant="outline" className="gap-2">
           <a
             href={whatsappLink(phone, statementMessage({ memberName, orgName, owing, entries }))}

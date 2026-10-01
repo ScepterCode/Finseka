@@ -17,6 +17,10 @@ export const adminActions: Record<string, string> = {
   admin_added: "Added a super admin",
   admin_removed: "Removed a super admin",
   two_step_reset: "Reset two-step login",
+  trial_extended: "Extended a trial",
+  payment_recorded: "Recorded a payment",
+  free_plan_given: "Gave a free plan",
+  free_plan_removed: "Removed a free plan",
 };
 
 export function describeAdminAction(a: AdminActivity) {
@@ -43,6 +47,14 @@ export function describeAdminAction(a: AdminActivity) {
       return `made ${email} a super admin`;
     case "admin_removed":
       return `removed ${email} as a super admin`;
+    case "trial_extended":
+      return `extended the trial of ${org} by ${String(details["days"] ?? "")} days`;
+    case "payment_recorded":
+      return `recorded a payment of ₦${Number(details["amount"] ?? 0).toLocaleString("en-NG")} for ${org}`;
+    case "free_plan_given":
+      return `gave ${org} a free plan`;
+    case "free_plan_removed":
+      return `removed the free plan of ${org}`;
     case "two_step_reset":
       return `reset the two-step login of ${email}`;
     default:

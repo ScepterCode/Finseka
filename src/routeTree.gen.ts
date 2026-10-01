@@ -22,6 +22,8 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminActivityRouteImport } from './routes/admin/activity'
 import { Route as AdminAdminsRouteImport } from './routes/admin/admins'
+import { Route as ApiFlutterwaveWebhookRouteImport } from './routes/api/flutterwave-webhook'
+import { Route as AuthenticatedBillingCallbackRouteImport } from './routes/_authenticated/billing.callback'
 import { Route as AuthenticatedContributionsIndexRouteImport } from './routes/_authenticated/contributions.index'
 import { Route as AuthenticatedContributionsContributionIdRouteImport } from './routes/_authenticated/contributions.$contributionId'
 import { Route as AuthenticatedDuesIndexRouteImport } from './routes/_authenticated/dues.index'
@@ -97,6 +99,17 @@ const AdminAdminsRoute = AdminAdminsRouteImport.update({
   path: '/admins',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const ApiFlutterwaveWebhookRoute = ApiFlutterwaveWebhookRouteImport.update({
+  id: '/api/flutterwave-webhook',
+  path: '/api/flutterwave-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedBillingCallbackRoute =
+  AuthenticatedBillingCallbackRouteImport.update({
+    id: '/billing/callback',
+    path: '/billing/callback',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedContributionsIndexRoute =
   AuthenticatedContributionsIndexRouteImport.update({
     id: '/contributions/',
@@ -166,7 +179,9 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/admin/activity': typeof AdminActivityRoute
   '/admin/admins': typeof AdminAdminsRoute
+  '/api/flutterwave-webhook': typeof ApiFlutterwaveWebhookRoute
   '/admin/': typeof AdminIndexRoute
+  '/billing/callback': typeof AuthenticatedBillingCallbackRoute
   '/contributions/$contributionId': typeof AuthenticatedContributionsContributionIdRoute
   '/dues/$dueId': typeof AuthenticatedDuesDueIdRoute
   '/members/$memberId': typeof AuthenticatedMembersMemberIdRoute
@@ -189,7 +204,9 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/admin/activity': typeof AdminActivityRoute
   '/admin/admins': typeof AdminAdminsRoute
+  '/api/flutterwave-webhook': typeof ApiFlutterwaveWebhookRoute
   '/admin': typeof AdminIndexRoute
+  '/billing/callback': typeof AuthenticatedBillingCallbackRoute
   '/contributions/$contributionId': typeof AuthenticatedContributionsContributionIdRoute
   '/dues/$dueId': typeof AuthenticatedDuesDueIdRoute
   '/members/$memberId': typeof AuthenticatedMembersMemberIdRoute
@@ -215,7 +232,9 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/admin/activity': typeof AdminActivityRoute
   '/admin/admins': typeof AdminAdminsRoute
+  '/api/flutterwave-webhook': typeof ApiFlutterwaveWebhookRoute
   '/admin/': typeof AdminIndexRoute
+  '/_authenticated/billing/callback': typeof AuthenticatedBillingCallbackRoute
   '/_authenticated/contributions/$contributionId': typeof AuthenticatedContributionsContributionIdRoute
   '/_authenticated/dues/$dueId': typeof AuthenticatedDuesDueIdRoute
   '/_authenticated/members/$memberId': typeof AuthenticatedMembersMemberIdRoute
@@ -241,7 +260,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/admin/activity'
     | '/admin/admins'
+    | '/api/flutterwave-webhook'
     | '/admin/'
+    | '/billing/callback'
     | '/contributions/$contributionId'
     | '/dues/$dueId'
     | '/members/$memberId'
@@ -264,7 +285,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/admin/activity'
     | '/admin/admins'
+    | '/api/flutterwave-webhook'
     | '/admin'
+    | '/billing/callback'
     | '/contributions/$contributionId'
     | '/dues/$dueId'
     | '/members/$memberId'
@@ -289,7 +312,9 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/admin/activity'
     | '/admin/admins'
+    | '/api/flutterwave-webhook'
     | '/admin/'
+    | '/_authenticated/billing/callback'
     | '/_authenticated/contributions/$contributionId'
     | '/_authenticated/dues/$dueId'
     | '/_authenticated/members/$memberId'
@@ -307,6 +332,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AdminRouteRoute: typeof AdminRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiFlutterwaveWebhookRoute: typeof ApiFlutterwaveWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -402,6 +428,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAdminsRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/api/flutterwave-webhook': {
+      id: '/api/flutterwave-webhook'
+      path: '/api/flutterwave-webhook'
+      fullPath: '/api/flutterwave-webhook'
+      preLoaderRoute: typeof ApiFlutterwaveWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/billing/callback': {
+      id: '/_authenticated/billing/callback'
+      path: '/billing/callback'
+      fullPath: '/billing/callback'
+      preLoaderRoute: typeof AuthenticatedBillingCallbackRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/contributions/': {
       id: '/_authenticated/contributions/'
       path: '/contributions'
@@ -482,6 +522,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedLedgerRoute: typeof AuthenticatedLedgerRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedBillingCallbackRoute: typeof AuthenticatedBillingCallbackRoute
   AuthenticatedContributionsContributionIdRoute: typeof AuthenticatedContributionsContributionIdRoute
   AuthenticatedDuesDueIdRoute: typeof AuthenticatedDuesDueIdRoute
   AuthenticatedMembersMemberIdRoute: typeof AuthenticatedMembersMemberIdRoute
@@ -499,6 +540,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedLedgerRoute: AuthenticatedLedgerRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedBillingCallbackRoute: AuthenticatedBillingCallbackRoute,
   AuthenticatedContributionsContributionIdRoute:
     AuthenticatedContributionsContributionIdRoute,
   AuthenticatedDuesDueIdRoute: AuthenticatedDuesDueIdRoute,
@@ -538,6 +580,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AdminRouteRoute: AdminRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiFlutterwaveWebhookRoute: ApiFlutterwaveWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

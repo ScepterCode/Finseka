@@ -15,6 +15,7 @@ import { inviteTeamMember, deleteMyAccount, type InviteResult } from "@/lib/team
 import { EmptyState, PageHeader } from "@/components/page-parts";
 import { ConfirmButton } from "@/components/confirm";
 import { FinancialYearSettings } from "@/components/financial-year-settings";
+import { BillingSection } from "@/components/billing";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -177,6 +178,8 @@ function SettingsPage() {
         title="Settings & Admin"
         subtitle="Your organization details, branches and the people who can use FinSeka."
       />
+
+      <BillingSection />
 
       <section className="rounded-3xl border border-border bg-card p-6 shadow-soft">
         <h2 className="font-display text-lg font-semibold">Organization info</h2>

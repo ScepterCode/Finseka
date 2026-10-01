@@ -144,6 +144,15 @@ export function describeChange(e: Entry, names: Map<string, string>) {
       return e.action === "insert"
         ? "created the organization"
         : `changed the organization${edited}`;
+    case "billing": {
+      if (e.action === "payment")
+        return `recorded a Pro payment of ${amount} covering ${String(row["months"] ?? 1)} month(s)`;
+      if (e.action === "trial_extended")
+        return `extended your free trial by ${String(row["days"] ?? "")} days`;
+      if (e.action === "free_plan_given") return "put your organization on a free plan";
+      if (e.action === "free_plan_removed") return "ended your free plan";
+      return "updated your plan";
+    }
     case "support_access":
       return e.action === "start"
         ? `opened your records to help — ${String(row["reason"] ?? "")}`
