@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { completePasswordChange } from "@/lib/team.functions";
 import { AppSidebar } from "@/components/app-sidebar";
+import { BillingBanner } from "@/components/billing";
 import { ConfirmButton } from "@/components/confirm";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
@@ -110,6 +111,7 @@ function AuthenticatedLayout() {
             </ConfirmButton>
           </header>
           {support && <SupportBanner orgName={org?.name ?? "this organization"} />}
+          <BillingBanner />
           <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
             <Outlet />
           </main>

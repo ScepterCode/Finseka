@@ -20,7 +20,21 @@ export type SupportSession = {
   expires_at: string;
 };
 
+/** Where the organization stands with FinSeka billing. */
+export type Billing = {
+  status: "trial" | "active" | "grace" | "read_only" | "free";
+  can_write: boolean;
+  trial_ends_at: string;
+  paid_until: string | null;
+  grace_ends_at: string | null;
+  free_plan: boolean;
+  provider: "flutterwave" | "manual" | null;
+  auto_renew: boolean;
+  price: number;
+};
+
 type AppContext = {
+  billing?: Billing | null;
   org: Org | null;
   is_admin: boolean;
   is_platform_admin: boolean;
@@ -43,6 +57,9 @@ type AuthValue = {
   /** On the super admin list, whether or not this sign-in used a two-step code. */
   isPlatformAdminMember: boolean;
   support: SupportSession | null;
+  billing: Billing | null;
+  /** False when the organization's plan has ended: records can be seen but not changed, downloaded or printed. */
+  canWrite: boolean;
   mustChangePassword: boolean;
   refreshMe: () => void;
 };
@@ -105,11 +122,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           support: null,
         };
       }
+      const billing = context.billing ?? null;
+      // FinSeka support can still fix records in an organization whose plan has ended.
+      const canWrite = !billing || billing.can_write || !!context.support;
       return {
         fullName: profile?.full_name ?? "",
         orgId: context.org?.id ?? null,
         org: context.org,
-        isAdmin: context.is_admin,
+        // Admin controls are hidden while the plan has ended; the database refuses changes anyway.
+        isAdmin: context.is_admin && canWrite,
+        billing,
+        canWrite,
         isPlatformAdmin: context.is_platform_admin,
         isPlatformAdminMember: context.is_platform_admin_member ?? context.is_platform_admin,
         support: context.support,
@@ -134,6 +157,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isPlatformAdmin: me.data?.isPlatformAdmin ?? false,
       isPlatformAdminMember: me.data?.isPlatformAdminMember ?? false,
       support: me.data?.support ?? null,
+      billing: me.data?.billing ?? null,
+      canWrite: me.data?.canWrite ?? true,
       mustChangePassword: me.data?.mustChangePassword ?? false,
       refreshMe: () => queryClient.invalidateQueries({ queryKey: ["me"] }),
     }),

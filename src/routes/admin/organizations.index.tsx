@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { shortDate } from "@/lib/format";
+import { BillingBadge } from "@/components/admin-billing";
 import { EmptyState, PageHeader } from "@/components/page-parts";
 import { SearchBox } from "@/components/search-box";
 import { Button } from "@/components/ui/button";
@@ -98,6 +99,7 @@ function OrganizationsPage() {
                 <tr>
                   <th className="px-4 py-3 font-medium">Organization</th>
                   <th className="px-4 py-3 font-medium">Admins</th>
+                  <th className="px-4 py-3 font-medium">Plan</th>
                   <th className="px-4 py-3 text-right font-medium">Members</th>
                   <th className="px-4 py-3 text-right font-medium">Team</th>
                   <th className="px-4 py-3 font-medium">Last activity</th>
@@ -120,6 +122,9 @@ function OrganizationsPage() {
                     </td>
                     <td className="max-w-[240px] truncate px-4 py-3 text-muted-foreground">
                       {o.admin_emails ?? "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <BillingBadge status={o.billing_status} />
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums">{o.members}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{o.team}</td>

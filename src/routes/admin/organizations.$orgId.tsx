@@ -9,6 +9,7 @@ import { describeChange, type Entry } from "@/lib/history";
 import { shortDate } from "@/lib/format";
 import { PageHeader, StatCard } from "@/components/page-parts";
 import { SupportDialog, WipeDialog, type OrgRef } from "@/components/admin-dialogs";
+import { OrgBillingPanel } from "@/components/admin-billing";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -134,6 +135,7 @@ function OrganizationPage() {
         <div className="overflow-x-auto">
           <TabsList>
             <TabsTrigger value="team">Team ({d.team.length})</TabsTrigger>
+            <TabsTrigger value="billing">Billing</TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
             <TabsTrigger value="support">
               Support sessions ({d.support_sessions.length})
@@ -175,6 +177,10 @@ function OrganizationPage() {
               </tbody>
             </table>
           </div>
+        </TabsContent>
+
+        <TabsContent value="billing" className="mt-4">
+          {tab === "billing" && <OrgBillingPanel orgId={orgId} />}
         </TabsContent>
 
         <TabsContent value="history" className="mt-4">

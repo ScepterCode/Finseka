@@ -37,6 +37,22 @@ function OverviewPage() {
       return data as unknown as Overview;
     },
   });
+  const billing = useQuery({
+    queryKey: ["admin", "billing-overview"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_billing_overview");
+      if (error) throw error;
+      return data as unknown as {
+        trial: number;
+        active: number;
+        grace: number;
+        read_only: number;
+        free: number;
+        monthly_revenue: number;
+        paid_last_30d: number;
+      };
+    },
+  });
   const recent = useQuery({
     queryKey: ["admin", "activity", "recent"],
     queryFn: async () => {
@@ -84,6 +100,36 @@ function OverviewPage() {
           <StatCard label="Logins" value={n(o?.logins)} hint="Everyone who can sign in" />
           <StatCard label="Super admins" value={n(o?.super_admins)} />
         </div>
+      )}
+
+      {billing.data && (
+        <section className="space-y-3">
+          <h2 className="font-display text-lg font-semibold">Billing</h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              label="Pro organizations"
+              value={n(billing.data.active)}
+              hint={`${naira(billing.data.monthly_revenue)} a month`}
+              tone="good"
+            />
+            <StatCard
+              label="On free trial"
+              value={n(billing.data.trial)}
+              hint={`${n(billing.data.free)} on a free plan`}
+            />
+            <StatCard
+              label="Overdue · Ended"
+              value={`${n(billing.data.grace)} · ${n(billing.data.read_only)}`}
+              hint="Overdue ones keep working for 3 days"
+              tone="bad"
+            />
+            <StatCard
+              label="Paid, last 30 days"
+              value={naira(billing.data.paid_last_30d)}
+              tone="accent"
+            />
+          </div>
+        </section>
       )}
 
       <section className="space-y-3">
