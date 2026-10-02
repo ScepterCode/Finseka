@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { Loader2, Wallet } from "lucide-react";
+import { Loader2 } from "lucide-react";
+
+import { BrandMark } from "@/components/brand-mark";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -106,9 +108,7 @@ function AuthPage() {
     <div className="flex min-h-screen flex-col bg-background">
       <header className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5">
         <Link to="/" className="flex items-center gap-2.5">
-          <span className="grid size-9 place-items-center rounded-xl bg-wine-gradient text-primary-foreground shadow-soft">
-            <Wallet className="size-4" aria-hidden />
-          </span>
+          <BrandMark />
           <span className="font-display text-xl font-semibold tracking-tight">FinSeka</span>
         </Link>
         <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-foreground">

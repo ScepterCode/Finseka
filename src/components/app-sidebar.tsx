@@ -11,7 +11,6 @@ import {
   History,
   Settings,
   ShieldAlert,
-  Wallet,
 } from "lucide-react";
 
 import {
@@ -26,6 +25,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { BrandMark } from "@/components/brand-mark";
 
 const items = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -60,9 +60,7 @@ export function AppSidebar({
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="flex items-center gap-2.5 px-1 py-2">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-wine-gradient text-primary-foreground shadow-soft">
-            <Wallet className="size-4" aria-hidden />
-          </span>
+          <BrandMark />
           {!collapsed && (
             <span className="min-w-0">
               <span className="block font-display text-base font-semibold leading-tight">
