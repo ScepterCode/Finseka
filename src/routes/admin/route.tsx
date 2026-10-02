@@ -7,10 +7,11 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, LogOut, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Loader2, LogOut } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { BrandMark } from "@/components/brand-mark";
 import { ConfirmButton } from "@/components/confirm";
 import { TwoStepGate } from "@/components/two-step-gate";
 
@@ -70,9 +71,7 @@ function AdminLayout() {
     <div className="min-h-screen bg-background">
       <header className="print-hide sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur-md">
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-3 px-4 sm:px-6">
-          <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-wine-gradient text-primary-foreground shadow-soft">
-            <ShieldAlert className="size-4" aria-hidden />
-          </span>
+          <BrandMark className="size-8" />
           <span className="min-w-0">
             <span className="block font-display text-base font-semibold leading-tight">
               FinSeka System admin

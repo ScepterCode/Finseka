@@ -11,6 +11,7 @@ import {
   ArrowRight,
   PhoneCall,
 } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
 
 import heroImg from "@/assets/hero-finsec.jpg";
 import painImg from "@/assets/pain-paper-chaos.jpg";
@@ -60,9 +61,7 @@ function Landing() {
 function Logo() {
   return (
     <a href="#top" className="flex items-center gap-2.5">
-      <span className="grid size-9 place-items-center rounded-xl bg-wine-gradient text-primary-foreground shadow-soft">
-        <Wallet className="size-4.5" aria-hidden />
-      </span>
+      <BrandMark />
       <span className="font-display text-xl font-semibold tracking-tight">FinSeka</span>
     </a>
   );
