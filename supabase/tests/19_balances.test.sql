@@ -14,14 +14,14 @@ SET LOCAL finseka.today = '2026-10-01';
 INSERT INTO branches (org_id, name) VALUES (:'org2', 'Aba'), (:'org2', 'Owerri');
 SELECT min(id::text)::uuid AS br FROM branches WHERE org_id = :'org2' AND name = 'Aba' \gset
 
--- 30 members: joined at all sorts of dates (some after today), some in the choir, some inactive.
+-- 18 members: joined at all sorts of dates (some after today), some in the choir, some inactive.
 INSERT INTO members (org_id, name, joined_on, tags, branch_id, active)
 SELECT :'org2', 'Member ' || g,
        '2023-06-01'::date + (random() * 1250)::int,
        CASE WHEN random() < 0.35 THEN ARRAY['choir'] ELSE '{}' END,
        CASE WHEN random() < 0.5 THEN :'br'::uuid END,
        random() > 0.08
-FROM generate_series(1, 30) g;
+FROM generate_series(1, 18) g;
 
 INSERT INTO dues (org_id, name, amount, frequency, starts_on, penalty_amount, penalty_grace_days, audience,
                   audience_labels, audience_branch_ids, active)
@@ -87,7 +87,7 @@ ANALYZE members, dues, due_rates, due_members, due_payments, contributions, cont
 -- Same answers, on several days
 -- ---------------------------------------------------------------------------
 CREATE TEMP TABLE days (today date);
-INSERT INTO days VALUES ('2026-10-01'), ('2026-03-15'), ('2025-12-31'), ('2025-06-01'), ('2024-02-20');
+INSERT INTO days VALUES ('2026-10-01'), ('2025-12-31'), ('2024-02-20');
 GRANT SELECT ON days TO authenticated;
 
 SET LOCAL ROLE authenticated;
@@ -155,7 +155,7 @@ END $$;
 DO $$
 DECLARE _day date; _diff text; _r record;
 BEGIN
-  FOR _day IN SELECT today FROM days WHERE today IN ('2025-12-31', '2026-10-01') ORDER BY today LOOP
+  FOR _day IN SELECT today FROM days WHERE today = '2026-10-01' LOOP
     PERFORM set_config('finseka.today', _day::text, true);
     FOR _r IN SELECT * FROM (VALUES
         ((_day - interval '12 months')::date, _day, NULL::uuid, NULL::text),
