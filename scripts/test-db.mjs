@@ -3,6 +3,7 @@
 // throwaway Postgres database, and drops it afterwards.
 //
 //   TEST_DATABASE_URL=postgresql://postgres@localhost:5432/postgres npm run test:db
+//   ... npm run test:db -- 19     # only test files whose name contains "19"
 //
 // TEST_DATABASE_URL must point at a plain Postgres server you can create databases on.
 // It refuses Supabase addresses, so it can never touch a real project.
@@ -28,6 +29,8 @@ function psql(url, args, input) {
   return spawnSync("psql", [url, "-X", "-q", "-v", "ON_ERROR_STOP=1", ...args], {
     input,
     encoding: "utf8",
+    // Our SQL files are UTF-8; without this, psql on Windows reads them in the console code page.
+    env: { ...process.env, PGCLIENTENCODING: "UTF8" },
   });
 }
 
@@ -47,6 +50,8 @@ const migrations = readdirSync(migrationsDir)
   .sort();
 const tests = readdirSync(testsDir)
   .filter((f) => f.endsWith(".test.sql"))
+  // Optional: only test files whose name contains this text, e.g. `npm run test:db -- 19`.
+  .filter((f) => !process.argv[2] || f.includes(process.argv[2]))
   .sort();
 
 if (!must(psql(adminUrl, ["-c", `CREATE DATABASE ${dbName}`]), "create test database"))
