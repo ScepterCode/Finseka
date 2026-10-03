@@ -11,7 +11,6 @@ RETURNS jsonb
 LANGUAGE sql
 STABLE
 SET search_path = public
-SET enable_nestloop = off  -- only how it runs, not what it returns: keeps the reference quick
 AS $$
   WITH t AS (SELECT org_today() AS today),
   mem AS (

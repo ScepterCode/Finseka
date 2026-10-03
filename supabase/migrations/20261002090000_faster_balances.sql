@@ -27,9 +27,6 @@ RETURNS TABLE (
 LANGUAGE sql
 STABLE
 SET search_path = public
--- Row-by-row joins are only quick when Postgres knows the tables are tiny; right after a bulk
--- load (before it measures them) it can wrongly pick them and take a minute. Hash joins never do.
-SET enable_nestloop = off
 AS $$
   WITH t AS (SELECT org_today() AS today),
   m AS MATERIALIZED (
@@ -235,9 +232,6 @@ RETURNS jsonb
 LANGUAGE sql
 STABLE
 SET search_path = public
--- Row-by-row joins are only quick when Postgres knows the tables are tiny; right after a bulk
--- load (before it measures them) it can wrongly pick them and take a minute. Hash joins never do.
-SET enable_nestloop = off
 AS $$
   WITH t AS (SELECT org_today() AS today),
   mem AS MATERIALIZED (
