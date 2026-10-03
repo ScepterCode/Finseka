@@ -28,7 +28,7 @@ psql "$BASE/probe" -X -q -f supabase/tests/reference_analytics.sql >/dev/null 2>
 session() {         # $1 = today, $2 = SQL; prints timings and auto_explain plans of slow statements
   psql "$BASE/probe" -X -q 2>&1 <<SQL
 LOAD 'auto_explain';
-SET auto_explain.log_min_duration = 2000;
+SET auto_explain.log_min_duration = 300;
 SET auto_explain.log_analyze = on;
 SET auto_explain.log_nested_statements = on;
 SET auto_explain.log_level = notice;
@@ -43,9 +43,9 @@ ROLLBACK;
 SQL
 }
 timed() { session "$2" "$3" | grep -E "Time:|ERROR|canceling" | sed "s/^/[$1 @ $2] /" | stamp; }
-plans() { session "$2" "$3" | grep -vE "^\s*$|Buffers|Storage" | head -150 | sed "s/^/[$1 plan] /"; }
+plans() { session "$2" "$3" | grep -vE "^\s*$|Buffers|Storage" | head -400 | sed "s/^/[$1 plan] /"; }
 
-for day in 2024-02-20 2025-12-31 2026-10-01; do
+for day in 2026-10-01; do
   timed "old standing_lines" $day "SELECT count(*), sum(short + penalty) FROM standing_lines()"
   timed "new member_balances" $day "SELECT count(*), sum(total_owing) FROM member_balances()"
   timed "new current_period_dues" $day "SELECT * FROM current_period_dues()"
@@ -54,11 +54,13 @@ for day in 2024-02-20 2025-12-31 2026-10-01; do
   timed "new analytics" $day "SELECT length(analytics_summary(('$day'::date - 365), '$day'::date)::text)"
 done
 
-echo "=== plans of anything over 2 s (today 2026-10-01)"
+echo "=== plans of anything over 0.3 s (today 2026-10-01)"
 plans "new member_balances" 2026-10-01 "SELECT count(*) FROM member_balances()"
 plans "new dashboard" 2026-10-01 "SELECT length(dashboard_summary()::text)"
+plans "old standing_lines" 2026-10-01 "SELECT count(*), sum(short + penalty) FROM standing_lines()"
 plans "new analytics" 2026-10-01 "SELECT length(analytics_summary('2025-10-01', '2026-10-01')::text)"
 
+exit 0
 echo "=== the balance test itself, step by step (5-minute limit), in a fresh database"
 fresh_db probe2
 ( cd supabase/tests
