@@ -31,12 +31,12 @@ AS $$
   WITH t AS (SELECT org_today() AS today),
   m AS MATERIALIZED (
     SELECT id, name, joined_on, tags, branch_id FROM members
-    WHERE org_id = current_org_id() AND ((_member_id IS NULL AND active) OR id = _member_id)
+    WHERE org_id = (SELECT current_org_id()) AND ((_member_id IS NULL AND active) OR id = _member_id)
   ),
   d AS MATERIALIZED (
     SELECT id, frequency, starts_on, coalesce(penalty_amount, 0) AS penalty_amount,
            coalesce(penalty_grace_days, 0) AS grace, audience, audience_labels, audience_branch_ids
-    FROM dues WHERE org_id = current_org_id() AND active
+    FROM dues WHERE org_id = (SELECT current_org_id()) AND active
   ),
   -- Every period of every due up to today, its price, and whether its late charge applies.
   p AS MATERIALIZED (
@@ -72,7 +72,7 @@ AS $$
     FROM due_payments x
     JOIN dm ON dm.due_id = x.due_id AND dm.member_id = x.member_id
     JOIN p ON p.due_id = x.due_id AND p.period_start = x.period_start
-    WHERE x.org_id = current_org_id() AND x.voided_at IS NULL
+    WHERE x.org_id = (SELECT current_org_id()) AND x.voided_at IS NULL
       AND (_member_id IS NULL OR x.member_id = _member_id)
       AND p.period_start >= dm.first_start
     GROUP BY x.due_id, x.member_id, x.period_start
@@ -97,7 +97,7 @@ AS $$
   cp AS (
     SELECT contribution_id, member_id, sum(amount) AS paid
     FROM contribution_payments
-    WHERE org_id = current_org_id() AND voided_at IS NULL
+    WHERE org_id = (SELECT current_org_id()) AND voided_at IS NULL
       AND (_member_id IS NULL OR member_id = _member_id)
     GROUP BY contribution_id, member_id
   ),
@@ -107,7 +107,7 @@ AS $$
     JOIN contributions c ON c.id = cm.contribution_id AND c.mandatory
     JOIN m ON m.id = cm.member_id
     LEFT JOIN cp ON cp.contribution_id = c.id AND cp.member_id = cm.member_id
-    WHERE c.org_id = current_org_id()
+    WHERE c.org_id = (SELECT current_org_id())
     GROUP BY cm.member_id
   )
   SELECT m.id, m.name,
@@ -135,7 +135,7 @@ AS $$
          LATERAL (SELECT CASE WHEN d.frequency = 'custom' THEN d.starts_on
                               ELSE period_start_of(d.frequency, t.today) END AS period_start,
                          period_end_of(d.frequency, period_start_of(d.frequency, t.today)) AS period_end) x
-    WHERE d.org_id = current_org_id() AND d.active
+    WHERE d.org_id = (SELECT current_org_id()) AND d.active
       AND (d.frequency = 'custom' OR d.starts_on <= t.today)
   ),
   lines AS (
@@ -144,7 +144,7 @@ AS $$
                      WHERE dp.due_id = cur.id AND dp.member_id = m.id AND dp.period_start = cur.period_start
                        AND dp.voided_at IS NULL), 0) AS paid
     FROM cur
-    JOIN members m ON m.org_id = current_org_id() AND m.active
+    JOIN members m ON m.org_id = (SELECT current_org_id()) AND m.active
      AND (cur.period_end IS NULL OR cur.period_end >= m.joined_on)
      AND due_applies_to(cur.id, cur.audience, cur.audience_labels, cur.audience_branch_ids, m.id, m.tags, m.branch_id)
   )
@@ -160,7 +160,7 @@ AS $$
   WITH cur AS (SELECT * FROM current_period_dues())
   SELECT ledger_totals() || jsonb_build_object(
     'owed', (SELECT coalesce(sum(total_owing), 0) FROM member_balances()),
-    'member_count', (SELECT count(*) FROM members WHERE org_id = current_org_id() AND active),
+    'member_count', (SELECT count(*) FROM members WHERE org_id = (SELECT current_org_id()) AND active),
     'dues_paid', (SELECT paid_count FROM cur),
     'dues_unpaid', (SELECT unpaid_count FROM cur),
     'contributions', contribution_progress(true),
@@ -168,7 +168,7 @@ AS $$
       SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY r.entry_date DESC, r.created_at DESC), '[]'::jsonb)
       FROM (
         SELECT id, kind, label, description, amount, entry_date, created_at
-        FROM ledger_entries WHERE org_id = current_org_id()
+        FROM ledger_entries WHERE org_id = (SELECT current_org_id())
         ORDER BY entry_date DESC, created_at DESC LIMIT 6
       ) r
     )
@@ -185,7 +185,7 @@ AS $$
   before AS (SELECT ledger_totals(NULL, (SELECT starts_on - 1 FROM y)) AS t),
   during AS (SELECT ledger_totals((SELECT starts_on FROM y), (SELECT ends_on FROM y)) AS t),
   upto AS (SELECT ledger_totals(NULL, (SELECT ends_on FROM y)) AS t),
-  closed AS (SELECT f.* FROM fiscal_years f, y WHERE f.org_id = current_org_id() AND f.starts_on = y.starts_on)
+  closed AS (SELECT f.* FROM fiscal_years f, y WHERE f.org_id = (SELECT current_org_id()) AND f.starts_on = y.starts_on)
   SELECT jsonb_build_object(
     'starts_on', y.starts_on,
     'ends_on', y.ends_on,
@@ -211,7 +211,7 @@ AS $$
                coalesce(sum(amount) FILTER (WHERE kind = 'income'), 0) AS income,
                coalesce(sum(amount) FILTER (WHERE kind = 'expense'), 0) AS expense
         FROM ledger_entries
-        WHERE org_id = current_org_id() AND entry_date BETWEEN y.starts_on AND y.ends_on
+        WHERE org_id = (SELECT current_org_id()) AND entry_date BETWEEN y.starts_on AND y.ends_on
         GROUP BY label
       ) t
     )
@@ -241,7 +241,7 @@ AS $$
   WITH t AS (SELECT org_today() AS today),
   mem AS MATERIALIZED (
     SELECT id, name, joined_on, tags, branch_id FROM members
-    WHERE org_id = current_org_id() AND active
+    WHERE org_id = (SELECT current_org_id()) AND active
       AND (_branch_id IS NULL OR branch_id = _branch_id)
       AND (_label IS NULL OR _label = ANY (tags))
   ),
@@ -253,13 +253,13 @@ AS $$
            sum(CASE WHEN kind = 'income' THEN amount ELSE 0 END) AS income,
            sum(CASE WHEN kind = 'expense' THEN amount ELSE 0 END) AS expense
     FROM ledger_entries
-    WHERE org_id = current_org_id() AND entry_date BETWEEN _from AND _to
+    WHERE org_id = (SELECT current_org_id()) AND entry_date BETWEEN _from AND _to
     GROUP BY 1
   ),
   d AS MATERIALIZED (
     SELECT id, name, frequency, starts_on, coalesce(penalty_amount, 0) AS penalty_amount,
            coalesce(penalty_grace_days, 0) AS grace, audience, audience_labels, audience_branch_ids
-    FROM dues WHERE org_id = current_org_id() AND active
+    FROM dues WHERE org_id = (SELECT current_org_id()) AND active
   ),
   -- Every period of every due up to today: price, late charge, and its lateness band (1-4).
   p AS MATERIALIZED (
@@ -290,7 +290,7 @@ AS $$
           FROM due_payments x
           JOIN dm ON dm.due_id = x.due_id AND dm.member_id = x.member_id
           JOIN p ON p.due_id = x.due_id AND p.period_start = x.period_start
-          WHERE x.org_id = current_org_id() AND x.voided_at IS NULL
+          WHERE x.org_id = (SELECT current_org_id()) AND x.voided_at IS NULL
             AND p.period_start >= dm.first_start
           GROUP BY x.due_id, x.member_id, x.period_start) y
   ),
@@ -324,7 +324,7 @@ AS $$
   ),
   cp AS (
     SELECT contribution_id, member_id, sum(amount) AS paid
-    FROM contribution_payments WHERE org_id = current_org_id() AND voided_at IS NULL
+    FROM contribution_payments WHERE org_id = (SELECT current_org_id()) AND voided_at IS NULL
     GROUP BY contribution_id, member_id
   ),
   -- Unpaid money by member and lateness band: dues, then compulsory contributions.
@@ -343,7 +343,7 @@ AS $$
     JOIN mem ON mem.id = cm.member_id
     LEFT JOIN cp ON cp.contribution_id = c.id AND cp.member_id = cm.member_id
     CROSS JOIN t
-    WHERE c.org_id = current_org_id() AND c.amount_per_person > coalesce(cp.paid, 0)
+    WHERE c.org_id = (SELECT current_org_id()) AND c.amount_per_person > coalesce(cp.paid, 0)
   ),
   -- Dues for periods starting in the range: charged to every member who had joined by then.
   in_range AS MATERIALIZED (
@@ -414,7 +414,7 @@ AS $$
     'spending', (
       SELECT coalesce(jsonb_agg(jsonb_build_object('label', label, 'amount', amount) ORDER BY amount DESC), '[]'::jsonb)
       FROM (SELECT label, sum(amount) AS amount FROM ledger_entries
-            WHERE org_id = current_org_id() AND kind = 'expense' AND entry_date BETWEEN _from AND _to
+            WHERE org_id = (SELECT current_org_id()) AND kind = 'expense' AND entry_date BETWEEN _from AND _to
             GROUP BY label HAVING sum(amount) <> 0) s
     ),
     'channels', channel_totals(_from, _to),
@@ -427,7 +427,7 @@ AS $$
       ),
       'joined', (
         SELECT count(*) FROM members m
-        WHERE m.org_id = current_org_id() AND m.joined_on BETWEEN _from AND _to
+        WHERE m.org_id = (SELECT current_org_id()) AND m.joined_on BETWEEN _from AND _to
           AND (_branch_id IS NULL OR m.branch_id = _branch_id)
           AND (_label IS NULL OR _label = ANY (m.tags))
       )
