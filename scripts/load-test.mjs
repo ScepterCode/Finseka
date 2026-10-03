@@ -41,6 +41,8 @@ dbUrl.pathname = `/${dbName}`;
 function psql(url, args) {
   const r = spawnSync("psql", [url, "-X", "-q", "-v", "ON_ERROR_STOP=1", ...args], {
     encoding: "utf8",
+    // Our SQL files are UTF-8; without this, psql on Windows reads them in the console code page.
+    env: { ...process.env, PGCLIENTENCODING: "UTF8" },
     maxBuffer: 64 * 1024 * 1024,
   });
   if (r.status !== 0) throw new Error((r.stderr || r.stdout || "psql failed").trim());
