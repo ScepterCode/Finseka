@@ -62,12 +62,20 @@ AS $$
     FROM d JOIN m
       ON due_applies_to(d.id, d.audience, d.audience_labels, d.audience_branch_ids, m.id, m.tags, m.branch_id)
   ),
+  -- Each member's payments per period they are charged for. Payments are matched to their period
+  -- and member first and totalled afterwards: Postgres sizes the payments from the table's own
+  -- statistics, whereas a total per period is a guess it can get badly wrong (on PostgreSQL 17 a
+  -- low guess made it re-read every payment for every member-period).
   paid AS MATERIALIZED (
-    SELECT due_id, member_id, period_start, sum(amount) AS paid
-    FROM due_payments
-    WHERE org_id = current_org_id() AND voided_at IS NULL
-      AND (_member_id IS NULL OR member_id = _member_id)
-    GROUP BY due_id, member_id, period_start
+    SELECT x.member_id, sum(x.amount) AS paid, max(p.expected) AS expected, bool_or(p.late) AS late,
+           max(dm.penalty_amount) AS penalty_amount
+    FROM due_payments x
+    JOIN dm ON dm.due_id = x.due_id AND dm.member_id = x.member_id
+    JOIN p ON p.due_id = x.due_id AND p.period_start = x.period_start
+    WHERE x.org_id = current_org_id() AND x.voided_at IS NULL
+      AND (_member_id IS NULL OR x.member_id = _member_id)
+      AND p.period_start >= dm.first_start
+    GROUP BY x.due_id, x.member_id, x.period_start
   ),
   -- Charged (+) and paid (−) rows, added up per member. (Adding them up rather than joining them
   -- keeps the work proportional to the rows, whatever Postgres guesses about their number.)
@@ -79,12 +87,9 @@ AS $$
     UNION ALL
     -- What each payment covers: never more than its period's price; a period paid in full
     -- carries no late charge.
-    SELECT dm.member_id, -least(paid.paid, p.expected),
-           CASE WHEN p.late AND p.expected > 0 AND paid.paid >= p.expected THEN -dm.penalty_amount ELSE 0 END
+    SELECT member_id, -least(paid, expected),
+           CASE WHEN late AND expected > 0 AND paid >= expected THEN -penalty_amount ELSE 0 END
     FROM paid
-    JOIN dm ON dm.due_id = paid.due_id AND dm.member_id = paid.member_id
-    JOIN p ON p.due_id = paid.due_id AND p.period_start = paid.period_start
-    WHERE p.period_start >= dm.first_start
   ),
   due_totals AS (
     SELECT member_id, sum(short) AS short, sum(penalty) AS penalty FROM due_parts GROUP BY member_id
@@ -275,16 +280,19 @@ AS $$
       ON due_applies_to(d.id, d.audience, d.audience_labels, d.audience_branch_ids, mem.id, mem.tags, mem.branch_id)
   ),
   -- Each member's payments, period by period, within the periods they are charged for.
+  -- (Payments matched first, totalled afterwards: see member_balances.)
   lines_paid AS MATERIALIZED (
-    SELECT dm.due_id, dm.member_id, dm.penalty_amount, p.period_start, p.band, p.late, p.expected,
-           least(x.paid, p.expected) AS covered, x.paid >= p.expected AS paid_in_full
-    FROM (SELECT due_id, member_id, period_start, sum(amount) AS paid
-          FROM due_payments WHERE org_id = current_org_id() AND voided_at IS NULL
-            AND member_id IN (SELECT id FROM mem)
-          GROUP BY due_id, member_id, period_start) x
-    JOIN dm ON dm.due_id = x.due_id AND dm.member_id = x.member_id
-    JOIN p ON p.due_id = x.due_id AND p.period_start = x.period_start
-    WHERE p.period_start >= dm.first_start
+    SELECT due_id, member_id, penalty_amount, period_start, band, late, expected,
+           least(paid, expected) AS covered, paid >= expected AS paid_in_full
+    FROM (SELECT x.due_id, x.member_id, x.period_start, sum(x.amount) AS paid,
+                 max(dm.penalty_amount) AS penalty_amount, max(p.band) AS band, bool_or(p.late) AS late,
+                 max(p.expected) AS expected
+          FROM due_payments x
+          JOIN dm ON dm.due_id = x.due_id AND dm.member_id = x.member_id
+          JOIN p ON p.due_id = x.due_id AND p.period_start = x.period_start
+          WHERE x.org_id = current_org_id() AND x.voided_at IS NULL
+            AND p.period_start >= dm.first_start
+          GROUP BY x.due_id, x.member_id, x.period_start) y
   ),
   -- Within each band, from each period to the band's last: charged, late periods, priced periods.
   band_from AS MATERIALIZED (
