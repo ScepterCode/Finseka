@@ -101,9 +101,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap",
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
-      { rel: "icon", href: "/brand/favicon-32.png", type: "image/png", sizes: "32x32" },
-      { rel: "apple-touch-icon", href: "/brand/apple-touch-icon.png", sizes: "180x180" },
+      // ?v=2: browsers keep tab icons for a long time; a new address makes them fetch the new logo.
+      { rel: "icon", href: "/favicon.ico?v=2", type: "image/x-icon", sizes: "any" },
+      { rel: "icon", href: "/brand/favicon-32.png?v=2", type: "image/png", sizes: "32x32" },
+      { rel: "apple-touch-icon", href: "/brand/apple-touch-icon.png?v=2", sizes: "180x180" },
     ],
   }),
 
