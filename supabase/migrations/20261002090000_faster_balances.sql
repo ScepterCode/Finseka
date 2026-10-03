@@ -15,6 +15,22 @@
 -- standing_lines() is unchanged: it still gives one member's period-by-period lines (profile,
 -- statement), and the tests check these totals against it.
 
+-- A period's position among its due's periods (0 = the first), from its start date.
+CREATE OR REPLACE FUNCTION public.period_number(_freq public.due_frequency, _first date, _d date)
+RETURNS int
+LANGUAGE sql
+IMMUTABLE
+AS $fn$
+  SELECT CASE _freq
+    WHEN 'monthly' THEN ((extract(year FROM _d) - extract(year FROM _first)) * 12
+                         + extract(month FROM _d) - extract(month FROM _first))::int
+    WHEN 'yearly' THEN (extract(year FROM _d) - extract(year FROM _first))::int
+    WHEN 'weekly' THEN (_d - _first) / 7
+    WHEN 'daily' THEN _d - _first
+    ELSE 0
+  END
+$fn$;
+
 CREATE OR REPLACE FUNCTION public.member_balances(_member_id uuid DEFAULT NULL)
 RETURNS TABLE (
   member_id uuid,
@@ -62,20 +78,35 @@ AS $$
     FROM d JOIN m
       ON due_applies_to(d.id, d.audience, d.audience_labels, d.audience_branch_ids, m.id, m.tags, m.branch_id)
   ),
-  -- Each member's payments per period they are charged for. Payments are matched to their period
-  -- and member first and totalled afterwards: Postgres sizes the payments from the table's own
-  -- statistics, whereas a total per period is a guess it can get badly wrong (on PostgreSQL 17 a
-  -- low guess made it re-read every payment for every member-period).
+  -- Each due's prices and late flags as lists in period order, so a payment finds its period's
+  -- price by position (its month, week, day or year number) rather than by a join.
+  prices AS MATERIALIZED (
+    SELECT p.due_id, d.frequency, min(p.period_start) AS first_period,
+           array_agg(p.expected ORDER BY p.period_start) AS expected,
+           array_agg(p.late ORDER BY p.period_start) AS late
+    FROM p JOIN d ON d.id = p.due_id
+    GROUP BY p.due_id, d.frequency
+  ),
+  -- Each member's payments per period they are charged for, looked up member by member and due by
+  -- due. (Postgres plans for an average-sized organization; this way a large one costs one index
+  -- lookup per member and due, not one per member and period.)
   paid AS MATERIALIZED (
-    SELECT x.member_id, sum(x.amount) AS paid, max(p.expected) AS expected, bool_or(p.late) AS late,
-           max(dm.penalty_amount) AS penalty_amount
-    FROM due_payments x
-    JOIN dm ON dm.due_id = x.due_id AND dm.member_id = x.member_id
-    JOIN p ON p.due_id = x.due_id AND p.period_start = x.period_start
-    WHERE x.org_id = (SELECT current_org_id()) AND x.voided_at IS NULL
-      AND (_member_id IS NULL OR x.member_id = _member_id)
-      AND p.period_start >= dm.first_start
-    GROUP BY x.due_id, x.member_id, x.period_start
+    SELECT member_id, paid, penalty_amount, expected[n] AS expected, late[n] AS late
+    FROM (
+      SELECT y.member_id, y.paid, y.penalty_amount, pr.expected, pr.late,
+             period_number(pr.frequency, pr.first_period, y.period_start) + 1 AS n
+      FROM (
+        SELECT dm.due_id, dm.member_id, max(dm.penalty_amount) AS penalty_amount, x.period_start,
+               sum(x.amount) AS paid
+        FROM dm
+        JOIN due_payments x ON x.due_id = dm.due_id AND x.member_id = dm.member_id
+        WHERE x.voided_at IS NULL AND x.period_start >= dm.first_start
+          AND (_member_id IS NULL OR x.member_id = _member_id)
+        GROUP BY dm.due_id, dm.member_id, x.period_start
+      ) y
+      JOIN prices pr ON pr.due_id = y.due_id
+    ) z
+    WHERE n BETWEEN 1 AND cardinality(expected)   -- payments for periods after today are ignored
   ),
   -- Charged (+) and paid (−) rows, added up per member. (Adding them up rather than joining them
   -- keeps the work proportional to the rows, whatever Postgres guesses about their number.)
@@ -280,19 +311,34 @@ AS $$
       ON due_applies_to(d.id, d.audience, d.audience_labels, d.audience_branch_ids, mem.id, mem.tags, mem.branch_id)
   ),
   -- Each member's payments, period by period, within the periods they are charged for.
-  -- (Payments matched first, totalled afterwards: see member_balances.)
+  -- Prices, late flags and lateness bands as lists in period order (see member_balances).
+  prices AS MATERIALIZED (
+    SELECT p.due_id, d.frequency, min(p.period_start) AS first_period,
+           array_agg(p.expected ORDER BY p.period_start) AS expected,
+           array_agg(p.late ORDER BY p.period_start) AS late,
+           array_agg(p.band ORDER BY p.period_start) AS band
+    FROM p JOIN d ON d.id = p.due_id
+    GROUP BY p.due_id, d.frequency
+  ),
+  -- Each member's payments, period by period, looked up member by member (see member_balances).
   lines_paid AS MATERIALIZED (
-    SELECT due_id, member_id, penalty_amount, period_start, band, late, expected,
-           least(paid, expected) AS covered, paid >= expected AS paid_in_full
-    FROM (SELECT x.due_id, x.member_id, x.period_start, sum(x.amount) AS paid,
-                 max(dm.penalty_amount) AS penalty_amount, max(p.band) AS band, bool_or(p.late) AS late,
-                 max(p.expected) AS expected
-          FROM due_payments x
-          JOIN dm ON dm.due_id = x.due_id AND dm.member_id = x.member_id
-          JOIN p ON p.due_id = x.due_id AND p.period_start = x.period_start
-          WHERE x.org_id = (SELECT current_org_id()) AND x.voided_at IS NULL
-            AND p.period_start >= dm.first_start
-          GROUP BY x.due_id, x.member_id, x.period_start) y
+    SELECT due_id, member_id, penalty_amount, period_start, band[n] AS band, late[n] AS late,
+           expected[n] AS expected, least(paid, expected[n]) AS covered, paid >= expected[n] AS paid_in_full
+    FROM (
+      SELECT y.due_id, y.member_id, y.penalty_amount, y.period_start, y.paid,
+             pr.expected, pr.late, pr.band,
+             period_number(pr.frequency, pr.first_period, y.period_start) + 1 AS n
+      FROM (
+        SELECT dm.due_id, dm.member_id, max(dm.penalty_amount) AS penalty_amount, x.period_start,
+               sum(x.amount) AS paid
+        FROM dm
+        JOIN due_payments x ON x.due_id = dm.due_id AND x.member_id = dm.member_id
+        WHERE x.voided_at IS NULL AND x.period_start >= dm.first_start
+        GROUP BY dm.due_id, dm.member_id, x.period_start
+      ) y
+      JOIN prices pr ON pr.due_id = y.due_id
+    ) z
+    WHERE n BETWEEN 1 AND cardinality(expected)
   ),
   -- Within each band, from each period to the band's last: charged, late periods, priced periods.
   band_from AS MATERIALIZED (
