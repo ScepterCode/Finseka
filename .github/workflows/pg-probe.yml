@@ -1,0 +1,27 @@
+# TEMPORARY: diagnoses the faster-balances functions on PostgreSQL 17. Remove before merging.
+name: PG17 probe
+
+on:
+  push:
+    branches: [faster-balances]
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install psql
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Probe
+        env:
+          PGCLIENTENCODING: UTF8
+        run: bash scripts/pg-probe.sh postgresql://postgres:postgres@localhost:5432/postgres
