@@ -1231,6 +1231,11 @@ export type Database = {
         Returns: undefined;
       };
       org_for_checkout: { Args: { _tx_ref: string }; Returns: string | null };
+      create_bachs_checkout: {
+        Args: { _by: string; _email: string; _months: number; _org_id: string; _reference: string };
+        Returns: undefined;
+      };
+      billing_checkout: { Args: { _reference: string }; Returns: Json };
       org_for_payer_email: { Args: { _email: string }; Returns: string | null };
       mark_auto_renew_cancelled: { Args: { _org_id: string }; Returns: undefined };
       admin_orgs: {

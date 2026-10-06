@@ -282,9 +282,11 @@ export function OrgBillingPanel({ orgId }: { orgId: string }) {
             {d.payments.map((p) => (
               <li key={p.id} className="py-2">
                 {naira(p.amount)} · {p.months} month{p.months === 1 ? "" : "s"} ·{" "}
-                {p.provider === "flutterwave"
-                  ? `Flutterwave #${p.provider_ref}`
-                  : `bank transfer ${p.provider_ref}`}
+                {p.provider === "bachs"
+                  ? `Bachs ${p.provider_ref}`
+                  : p.provider === "flutterwave"
+                    ? `Flutterwave #${p.provider_ref}`
+                    : `bank transfer ${p.provider_ref}`}
                 {p.note && <span className="text-muted-foreground"> — {p.note}</span>}
                 <span className="block text-xs text-muted-foreground">
                   {when(p.paid_at)} · covers to {shortDate(p.covers_until)}
