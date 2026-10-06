@@ -22,6 +22,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminActivityRouteImport } from './routes/admin/activity'
 import { Route as AdminAdminsRouteImport } from './routes/admin/admins'
+import { Route as ApiBachsWebhookRouteImport } from './routes/api/bachs-webhook'
 import { Route as ApiFlutterwaveWebhookRouteImport } from './routes/api/flutterwave-webhook'
 import { Route as AuthenticatedBillingCallbackRouteImport } from './routes/_authenticated/billing.callback'
 import { Route as AuthenticatedContributionsIndexRouteImport } from './routes/_authenticated/contributions.index'
@@ -98,6 +99,11 @@ const AdminAdminsRoute = AdminAdminsRouteImport.update({
   id: '/admins',
   path: '/admins',
   getParentRoute: () => AdminRouteRoute,
+} as any)
+const ApiBachsWebhookRoute = ApiBachsWebhookRouteImport.update({
+  id: '/api/bachs-webhook',
+  path: '/api/bachs-webhook',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiFlutterwaveWebhookRoute = ApiFlutterwaveWebhookRouteImport.update({
   id: '/api/flutterwave-webhook',
@@ -179,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/admin/activity': typeof AdminActivityRoute
   '/admin/admins': typeof AdminAdminsRoute
+  '/api/bachs-webhook': typeof ApiBachsWebhookRoute
   '/api/flutterwave-webhook': typeof ApiFlutterwaveWebhookRoute
   '/admin/': typeof AdminIndexRoute
   '/billing/callback': typeof AuthenticatedBillingCallbackRoute
@@ -204,6 +211,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/admin/activity': typeof AdminActivityRoute
   '/admin/admins': typeof AdminAdminsRoute
+  '/api/bachs-webhook': typeof ApiBachsWebhookRoute
   '/api/flutterwave-webhook': typeof ApiFlutterwaveWebhookRoute
   '/admin': typeof AdminIndexRoute
   '/billing/callback': typeof AuthenticatedBillingCallbackRoute
@@ -232,6 +240,7 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/admin/activity': typeof AdminActivityRoute
   '/admin/admins': typeof AdminAdminsRoute
+  '/api/bachs-webhook': typeof ApiBachsWebhookRoute
   '/api/flutterwave-webhook': typeof ApiFlutterwaveWebhookRoute
   '/admin/': typeof AdminIndexRoute
   '/_authenticated/billing/callback': typeof AuthenticatedBillingCallbackRoute
@@ -260,6 +269,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/admin/activity'
     | '/admin/admins'
+    | '/api/bachs-webhook'
     | '/api/flutterwave-webhook'
     | '/admin/'
     | '/billing/callback'
@@ -285,6 +295,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/admin/activity'
     | '/admin/admins'
+    | '/api/bachs-webhook'
     | '/api/flutterwave-webhook'
     | '/admin'
     | '/billing/callback'
@@ -312,6 +323,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/admin/activity'
     | '/admin/admins'
+    | '/api/bachs-webhook'
     | '/api/flutterwave-webhook'
     | '/admin/'
     | '/_authenticated/billing/callback'
@@ -332,6 +344,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AdminRouteRoute: typeof AdminRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiBachsWebhookRoute: typeof ApiBachsWebhookRoute
   ApiFlutterwaveWebhookRoute: typeof ApiFlutterwaveWebhookRoute
 }
 
@@ -427,6 +440,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/admins'
       preLoaderRoute: typeof AdminAdminsRouteImport
       parentRoute: typeof AdminRouteRoute
+    }
+    '/api/bachs-webhook': {
+      id: '/api/bachs-webhook'
+      path: '/api/bachs-webhook'
+      fullPath: '/api/bachs-webhook'
+      preLoaderRoute: typeof ApiBachsWebhookRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/flutterwave-webhook': {
       id: '/api/flutterwave-webhook'
@@ -580,6 +600,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AdminRouteRoute: AdminRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiBachsWebhookRoute: ApiBachsWebhookRoute,
   ApiFlutterwaveWebhookRoute: ApiFlutterwaveWebhookRoute,
 }
 export const routeTree = rootRouteImport

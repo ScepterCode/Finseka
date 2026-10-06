@@ -30,43 +30,88 @@ function siteUrl() {
   return new URL(getRequest().url).origin;
 }
 
-/** How the organization can pay: online (Flutterwave) when it is set up, else bank transfer. */
+/**
+ * How the organization can pay: online through Bachs (any number of months at once) when it is set
+ * up, else Flutterwave (monthly), else bank transfer only.
+ */
 export const getBillingOptions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
+    const { bachsConfig } = await import("@/lib/bachs.server");
     const { flutterwaveConfig } = await import("@/lib/flutterwave.server");
-    const { PRO_PRICE } = await import("@/lib/billing.server");
+    const { PRO_PRICE, MAX_MONTHS } = await import("@/lib/billing.server");
+    const provider = bachsConfig().online
+      ? ("bachs" as const)
+      : flutterwaveConfig().online
+        ? ("flutterwave" as const)
+        : null;
     return {
-      online: flutterwaveConfig().online,
+      online: provider !== null,
+      provider,
       price: PRO_PRICE,
+      maxMonths: provider === "bachs" ? MAX_MONTHS : 1,
       bankDetails: process.env["BILLING_BANK_DETAILS"]?.trim() || null,
     };
   });
 
-/** Starts a Flutterwave checkout for Pro and returns the payment page to go to. */
+/**
+ * Starts an online payment for Pro and returns the payment page to go to: a one-off Bachs payment
+ * for the chosen number of months, or (without Bachs) a monthly Flutterwave plan.
+ */
 export const startProCheckout = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .validator((input: { months?: number } | undefined) => ({
+    months: Math.trunc(Number(input?.months ?? 1)),
+  }))
+  .handler(async ({ data, context }) => {
     const org = await requireBillingManager(context.supabase as unknown as UserClient);
     const email = typeof context.claims["email"] === "string" ? context.claims["email"] : "";
     if (!email) throw new Error("Your login has no email address to send the receipt to.");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { createProCheckout } = await import("@/lib/flutterwave.server");
-    const { PRO_PRICE } = await import("@/lib/billing.server");
+    const { bachsConfig, createBachsCheckout } = await import("@/lib/bachs.server");
+    const { PRO_PRICE, MAX_MONTHS } = await import("@/lib/billing.server");
+    const meta = (context.claims["user_metadata"] ?? {}) as { full_name?: string };
+    const reference = `finseka-${org.id.slice(0, 8)}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 
-    const txRef = `finseka-${org.id.slice(0, 8)}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+    if (bachsConfig().online) {
+      const months = data.months;
+      if (!(months >= 1 && months <= MAX_MONTHS)) {
+        throw new Error(`Choose between 1 and ${MAX_MONTHS} months.`);
+      }
+      const { error } = await supabaseAdmin.rpc("create_bachs_checkout", {
+        _reference: reference,
+        _org_id: org.id,
+        _by: context.userId,
+        _email: email,
+        _months: months,
+      });
+      if (error) throw new Error(error.message);
+      const link = await createBachsCheckout({
+        reference,
+        amount: PRO_PRICE * months,
+        months,
+        orgId: org.id,
+        orgName: org.name,
+        email,
+        name: meta.full_name ?? "",
+        successUrl: `${siteUrl()}/billing/callback`,
+        cancelUrl: `${siteUrl()}/settings#billing`,
+      });
+      return { link };
+    }
+
+    const { createProCheckout } = await import("@/lib/flutterwave.server");
     const { error } = await supabaseAdmin.rpc("create_billing_checkout", {
-      _tx_ref: txRef,
+      _tx_ref: reference,
       _org_id: org.id,
       _by: context.userId,
       _email: email,
     });
     if (error) throw new Error(error.message);
 
-    const meta = (context.claims["user_metadata"] ?? {}) as { full_name?: string };
     const link = await createProCheckout({
-      txRef,
+      txRef: reference,
       amount: PRO_PRICE,
       email,
       name: meta.full_name ?? "",
@@ -74,6 +119,29 @@ export const startProCheckout = createServerFn({ method: "POST" })
       redirectUrl: `${siteUrl()}/billing/callback`,
     });
     return { link };
+  });
+
+/** Back from the Bachs page: checks the payment with Bachs and records it. */
+export const confirmBachsPayment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: { checkoutId: string }) => ({
+    checkoutId: String(input.checkoutId ?? "").trim(),
+  }))
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase as unknown as UserClient;
+    const { data: appContext } = await supabase.rpc("app_context");
+    const orgId = (appContext as AppContext | null)?.org?.id;
+    if (!orgId) throw new Error("Organization not found.");
+
+    const { applyCheckout } = await import("@/lib/bachs");
+    const { bachsDeps } = await import("@/lib/billing.server");
+    const deps = await bachsDeps();
+    const checkout = await deps.fetchCheckout(data.checkoutId);
+    if (!checkout) return { outcome: "ignored" as const, reason: "payment not found" };
+    const result = await applyCheckout(checkout, deps, orgId);
+    return result.outcome === "ignored"
+      ? { outcome: "ignored" as const, reason: result.reason }
+      : { outcome: result.outcome };
   });
 
 /** Back from the Flutterwave page: checks the payment with Flutterwave and records it. */

@@ -1,6 +1,9 @@
-// Connects the Flutterwave rules (lib/flutterwave.ts) to FinSeka's database and Flutterwave's API.
+// Connects the payment rules (lib/flutterwave.ts, lib/bachs.ts) to FinSeka's database and the
+// providers' APIs.
 // Server code only: it uses the service role key.
 
+import type { BachsDeps } from "@/lib/bachs";
+import { bachsConfig, getBachsCheckout } from "@/lib/bachs.server";
 import type { FlutterwaveDeps } from "@/lib/flutterwave";
 import { flutterwaveConfig, verifyTransaction } from "@/lib/flutterwave.server";
 
@@ -40,6 +43,40 @@ export async function flutterwaveDeps(): Promise<FlutterwaveDeps> {
     markAutoRenewCancelled: async (orgId) => {
       const { error } = await supabaseAdmin.rpc("mark_auto_renew_cancelled", { _org_id: orgId });
       if (error) throw new Error(error.message);
+    },
+  };
+}
+
+/** The most months of Pro an organization can pay for in one go. */
+export const MAX_MONTHS = 12;
+
+export async function bachsDeps(): Promise<BachsDeps> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return {
+    webhookSecret: bachsConfig().webhookSecret,
+    price: PRO_PRICE,
+    fetchCheckout: getBachsCheckout,
+    checkoutFor: async (reference) => {
+      const { data, error } = await supabaseAdmin.rpc("billing_checkout", {
+        _reference: reference,
+      });
+      if (error) throw new Error(error.message);
+      const row = data as { org_id?: string; months?: number } | null;
+      return row?.org_id ? { orgId: row.org_id, months: Number(row.months ?? 1) } : null;
+    },
+    recordPayment: async (p) => {
+      const { data, error } = await supabaseAdmin.rpc("record_subscription_payment", {
+        _org_id: p.orgId,
+        _provider: "bachs",
+        _provider_ref: p.providerRef,
+        _amount: p.amount,
+        _currency: p.currency,
+        _months: p.months,
+        _paid_at: p.paidAt ?? new Date().toISOString(),
+        _raw: p.raw as never,
+      });
+      if (error) throw new Error(error.message);
+      return { duplicate: (data as { duplicate?: boolean } | null)?.duplicate === true };
     },
   };
 }

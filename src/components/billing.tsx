@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -13,6 +14,14 @@ import { naira, shortDate } from "@/lib/format";
 import { ConfirmButton } from "@/components/confirm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Shown at the top of every page when the trial is nearly over, a payment is overdue, or the plan has ended.
 export function BillingBanner() {
@@ -68,6 +77,7 @@ export function BillingSection() {
   const getOptions = useServerFn(getBillingOptions);
   const checkout = useServerFn(startProCheckout);
   const cancel = useServerFn(cancelAutoRenew);
+  const [months, setMonths] = useState("1");
 
   const canManage = useQuery({
     queryKey: ["billing", "can-manage"],
@@ -92,7 +102,7 @@ export function BillingSection() {
   });
 
   const pay = useMutation({
-    mutationFn: async () => checkout(),
+    mutationFn: async () => checkout({ data: { months: Number(months) } }),
     onSuccess: ({ link }) => {
       window.location.href = link;
     },
@@ -152,6 +162,44 @@ export function BillingSection() {
         <div className="mt-5 space-y-4">
           {options.isLoading ? (
             <Loader2 className="size-5 animate-spin text-primary" />
+          ) : options.data?.provider === "bachs" ? (
+            <div className="space-y-3">
+              <div className="max-w-xs space-y-2">
+                <Label htmlFor="pro-months">
+                  {billing.status === "active" ? "Pay for more months" : "How many months"}
+                </Label>
+                <Select value={months} onValueChange={setMonths}>
+                  <SelectTrigger id="pro-months">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: options.data.maxMonths }, (_, i) => i + 1).map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n === 12 ? "1 year (12 months)" : `${n} month${n === 1 ? "" : "s"}`} —{" "}
+                        {naira(billing.price * n)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button size="lg" disabled={pay.isPending} onClick={() => pay.mutate()}>
+                {pay.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <CreditCard className="size-4" />
+                )}
+                Pay {naira(billing.price * Number(months))}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                You pay once on Bachs’s secure page, by bank transfer or card. Nothing renews by
+                itself: FinSeka reminds you before your paid time runs out.
+                {billing.status === "trial"
+                  ? " Paying now doesn’t shorten your trial: Pro starts when the trial ends."
+                  : billing.status === "active"
+                    ? ` The months are added after ${shortDate(billing.paid_until)}.`
+                    : ""}
+              </p>
+            </div>
           ) : options.data?.online ? (
             <div className="space-y-2">
               <Button size="lg" disabled={pay.isPending} onClick={() => pay.mutate()}>
@@ -215,7 +263,12 @@ export function BillingSection() {
                   {naira(p.amount)} · {p.months} month{p.months === 1 ? "" : "s"}
                   <span className="text-muted-foreground">
                     {" "}
-                    · {p.provider === "flutterwave" ? "Flutterwave" : "Recorded by FinSeka"}
+                    ·{" "}
+                    {p.provider === "bachs"
+                      ? "Paid online (Bachs)"
+                      : p.provider === "flutterwave"
+                        ? "Flutterwave"
+                        : "Recorded by FinSeka"}
                   </span>
                 </span>
                 <span className="text-muted-foreground">
