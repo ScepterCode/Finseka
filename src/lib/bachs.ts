@@ -48,6 +48,7 @@ export type BachsResult =
   { outcome: "recorded" | "duplicate"; orgId: string } | { outcome: "ignored"; reason: string };
 
 const TOLERANCE_SECONDS = 300;
+const PAID_STATUSES = new Set(["paid", "succeeded"]);
 
 async function hmacHex(secret: string, message: string) {
   const enc = new TextEncoder();
@@ -115,7 +116,9 @@ export async function applyCheckout(
   deps: BachsDeps,
   expectedOrgId?: string,
 ): Promise<BachsResult> {
-  if (checkout.status !== "completed" || checkout.payment_status !== "paid") {
+  // Webhooks say "paid"; GET /v1/checkout-sessions/{id} says "succeeded" for the same checkout.
+  const paymentStatus = String(checkout.payment_status ?? "").toLowerCase();
+  if (checkout.status !== "completed" || !PAID_STATUSES.has(paymentStatus)) {
     return { outcome: "ignored", reason: "payment not completed" };
   }
   const target = checkout.reference ? await deps.checkoutFor(checkout.reference) : null;

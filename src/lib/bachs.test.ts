@@ -12,11 +12,12 @@ import {
 const SECRET = "whsec_test_secret";
 const NOW = 1_790_000_000;
 
-// Shaped like Bachs's GET /v1/checkout-sessions/{id} once a naira checkout is paid.
+// Shaped like Bachs's GET /v1/checkout-sessions/{id} once a naira checkout is paid (as the
+// sandbox really returns it: payment_status "succeeded", where webhooks say "paid").
 const paid = (over: Partial<BachsCheckout> = {}): BachsCheckout => ({
   checkout_id: "chk_abc",
   status: "completed",
-  payment_status: "paid",
+  payment_status: "succeeded",
   amount: "10000.00",
   currency: "NGN",
   reference: "finseka-ref-1",
@@ -148,6 +149,13 @@ describe("handleBachsWebhook", () => {
 });
 
 describe("applyCheckout", () => {
+  it("counts a completed checkout whether Bachs calls it succeeded or paid", async () => {
+    expect((await applyCheckout(paid(), deps())).outcome).toBe("recorded");
+    expect((await applyCheckout(paid({ payment_status: "paid" }), deps())).outcome).toBe(
+      "recorded",
+    );
+  });
+
   it("ignores unpaid, expired or non-naira checkouts", async () => {
     const d = deps();
     expect(
