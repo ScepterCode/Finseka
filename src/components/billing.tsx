@@ -40,7 +40,7 @@ export function BillingBanner() {
     ? "Your FinSeka plan has ended. You can still see all your records, but you can’t record, download or print anything until you upgrade to Pro."
     : billing.status === "grace"
       ? `Your Pro payment is overdue. Pay by ${shortDate(billing.grace_ends_at)} to keep recording.`
-      : `${trialLeft} day${trialLeft === 1 ? "" : "s"} left in your free trial. Upgrade to Pro (${naira(billing.price)} a month) to keep recording after ${shortDate(billing.trial_ends_at)}.`;
+      : `${trialLeft} day${trialLeft === 1 ? "" : "s"} left in your free trial. Upgrade to Pro (${naira(billing.price)} a month${billing.price < (billing.standard_price ?? billing.price) ? " at the launch price" : ""}) to keep recording after ${shortDate(billing.trial_ends_at)}.`;
 
   return (
     <>
@@ -72,6 +72,48 @@ export function BillingBanner() {
   );
 }
 
+/**
+ * "₦7,000 ₦5,000 a month · Launch price", with how long the launch price is locked for this
+ * organization (or that paying now locks it).
+ */
+function ProPrice({ billing }: { billing: Billing }) {
+  const standard = billing.standard_price ?? billing.price;
+  const discounted = billing.price < standard;
+  const lockedUntil =
+    billing.price_locked_until && new Date(billing.price_locked_until) > new Date()
+      ? billing.price_locked_until
+      : null;
+  return (
+    <>
+      <p className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        {discounted && (
+          <s className="text-lg text-muted-foreground" aria-label={`was ${naira(standard)}`}>
+            {naira(standard)}
+          </s>
+        )}
+        <span className="font-display text-2xl font-semibold">{naira(billing.price)}</span>
+        <span className="text-sm text-muted-foreground">a month</span>
+        {discounted && (
+          <Badge variant="secondary" className="self-center">
+            Launch price
+          </Badge>
+        )}
+      </p>
+      {lockedUntil && billing.locked_price ? (
+        <p className="mt-1 text-sm font-medium text-primary">
+          Your {naira(billing.locked_price)} launch price is locked in until{" "}
+          {shortDate(lockedUntil)}. After that, Pro is {naira(standard)} a month.
+        </p>
+      ) : discounted && !billing.price_locked_until && billing.status !== "free" ? (
+        <p className="mt-1 text-sm font-medium text-primary">
+          Pay now to lock in {naira(billing.price)} a month for your first 12 months of Pro. After
+          that, the standard price ({naira(standard)}) applies.
+        </p>
+      ) : null}
+    </>
+  );
+}
+
 // Settings → Billing: the plan, how to pay, and past payments.
 export function BillingSection() {
   const { billing, org, refreshMe } = useAuth();
@@ -92,6 +134,16 @@ export function BillingSection() {
     queryKey: ["billing", "options"],
     enabled: canManage.data === true,
     queryFn: () => getOptions(),
+  });
+  // What 1 to 12 months cost this organization (a locked launch price can end part-way).
+  const quotes = useQuery({
+    queryKey: ["billing", "quotes"],
+    enabled: options.data?.provider === "bachs",
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("my_pro_quotes");
+      if (error) throw error;
+      return (Array.isArray(data) ? data : []).map(Number);
+    },
   });
   const payments = useQuery({
     queryKey: ["billing", "payments"],
@@ -119,6 +171,8 @@ export function BillingSection() {
   });
 
   if (!billing) return null;
+  const standard = billing.standard_price ?? billing.price;
+  const totalFor = (n: number) => quotes.data?.[n - 1] || billing.price * n;
   const needsPayment =
     billing.status !== "free" && !(billing.status === "active" && billing.auto_renew);
 
@@ -150,9 +204,9 @@ export function BillingSection() {
         </Badge>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">{billingSummary(billing)}</p>
+      <ProPrice billing={billing} />
       <p className="mt-1 text-sm text-muted-foreground">
-        FinSeka Pro is {naira(billing.price)} a month for your whole organization: every member,
-        every admin. Questions about your plan?{" "}
+        For your whole organization: every member, every admin. Questions about your plan?{" "}
         <a
           href={supportLink(
             `Hello FinSeka, I have a question about the plan for ${org?.name ?? "my organization"}.`,
@@ -188,7 +242,10 @@ export function BillingSection() {
                     {Array.from({ length: options.data.maxMonths }, (_, i) => i + 1).map((n) => (
                       <SelectItem key={n} value={String(n)}>
                         {n === 12 ? "1 year (12 months)" : `${n} month${n === 1 ? "" : "s"}`} —{" "}
-                        {naira(billing.price * n)}
+                        {totalFor(n) < standard * n && (
+                          <s className="mr-1 text-muted-foreground">{naira(standard * n)}</s>
+                        )}
+                        {naira(totalFor(n))}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -200,7 +257,7 @@ export function BillingSection() {
                 ) : (
                   <CreditCard className="size-4" />
                 )}
-                Pay {naira(billing.price * Number(months))}
+                Pay {naira(totalFor(Number(months)))}
               </Button>
               <p className="text-xs text-muted-foreground">
                 You pay once on Bachs’s secure page, by bank transfer or card. Nothing renews by

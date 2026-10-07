@@ -30,10 +30,9 @@ const paid = (over: Partial<BachsCheckout> = {}): BachsCheckout => ({
 function deps(over: Partial<BachsDeps> = {}): BachsDeps {
   return {
     webhookSecret: SECRET,
-    price: 5000,
     fetchCheckout: vi.fn(async () => paid()),
     checkoutFor: vi.fn(async (ref: string) =>
-      ref === "finseka-ref-1" ? { orgId: "org-1", months: 2 } : null,
+      ref === "finseka-ref-1" ? { orgId: "org-1", months: 2, amount: 10000 } : null,
     ),
     recordPayment: vi.fn(async () => ({ duplicate: false })),
     ...over,
@@ -108,6 +107,7 @@ describe("handleBachsWebhook", () => {
         amount: 10000,
         currency: "NGN",
         months: 2,
+        reference: "finseka-ref-1",
       }),
     );
   });
@@ -149,6 +149,16 @@ describe("handleBachsWebhook", () => {
 });
 
 describe("applyCheckout", () => {
+  it("asks for the amount stored with the checkout (the organization's own price)", async () => {
+    const locked = deps({
+      checkoutFor: vi.fn(async () => ({ orgId: "org-1", months: 12, amount: 60000 })),
+    });
+    const year = (amount: string) =>
+      paid({ amount, charge: { status: "succeeded", amount_paid: amount } });
+    expect((await applyCheckout(year("60000.00"), locked)).outcome).toBe("recorded");
+    expect((await applyCheckout(year("59999.00"), locked)).outcome).toBe("ignored");
+  });
+
   it("counts a completed checkout whether Bachs calls it succeeded or paid", async () => {
     expect((await applyCheckout(paid(), deps())).outcome).toBe("recorded");
     expect((await applyCheckout(paid({ payment_status: "paid" }), deps())).outcome).toBe(

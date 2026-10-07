@@ -54,24 +54,24 @@ export async function bachsDeps(): Promise<BachsDeps> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return {
     webhookSecret: bachsConfig().webhookSecret,
-    price: PRO_PRICE,
     fetchCheckout: getBachsCheckout,
     checkoutFor: async (reference) => {
       const { data, error } = await supabaseAdmin.rpc("billing_checkout", {
         _reference: reference,
       });
       if (error) throw new Error(error.message);
-      const row = data as { org_id?: string; months?: number } | null;
-      return row?.org_id ? { orgId: row.org_id, months: Number(row.months ?? 1) } : null;
+      const row = data as { org_id?: string; months?: number; amount?: number } | null;
+      if (!row?.org_id) return null;
+      const months = Number(row.months ?? 1);
+      return { orgId: row.org_id, months, amount: Number(row.amount ?? PRO_PRICE * months) };
     },
     recordPayment: async (p) => {
-      const { data, error } = await supabaseAdmin.rpc("record_subscription_payment", {
-        _org_id: p.orgId,
-        _provider: "bachs",
-        _provider_ref: p.providerRef,
+      // The database checks the amount against the checkout again before recording it.
+      const { data, error } = await supabaseAdmin.rpc("record_bachs_payment", {
+        _reference: p.reference,
+        _checkout_id: p.providerRef,
         _amount: p.amount,
         _currency: p.currency,
-        _months: p.months,
         _paid_at: p.paidAt ?? new Date().toISOString(),
         _raw: p.raw as never,
       });

@@ -28,9 +28,14 @@ export type Billing = {
   paid_until: string | null;
   grace_ends_at: string | null;
   free_plan: boolean;
-  provider: "flutterwave" | "manual" | null;
+  provider: "flutterwave" | "bachs" | "manual" | null;
   auto_renew: boolean;
+  /** What this organization's next month of Pro costs (its locked launch price while that lasts). */
   price: number;
+  /** The price after the launch; older databases may not send it. */
+  standard_price?: number;
+  locked_price?: number | null;
+  price_locked_until?: string | null;
 };
 
 type AppContext = {

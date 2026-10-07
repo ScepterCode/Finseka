@@ -5,8 +5,9 @@
 // * A webhook is only trusted when its signature (HMAC-SHA256 of "{timestamp}.{raw body}" with the
 //   endpoint's signing secret) matches and it is less than 5 minutes old. Even then the checkout is
 //   fetched again from Bachs before anything is recorded: the webhook body is never trusted.
-// * A checkout counts only if it is completed and paid, in naira, and the amount covers every
-//   month it was started for (1 to 12, chosen by the admin and stored with its reference).
+// * A checkout counts only if it is completed and paid, in naira, and for at least the amount
+//   FinSeka asked when it started (stored with its reference: 1 to 12 months, at the
+//   organization's own price, which may be a locked launch price).
 // * The checkout is matched to its organization by the reference FinSeka created for it.
 // * Recording is idempotent (keyed on the checkout id): Bachs may send the same event more than
 //   once, and the return page records it too.
@@ -25,6 +26,7 @@ export type BachsCheckout = {
 
 export type BachsPaymentToRecord = {
   orgId: string;
+  reference: string;
   providerRef: string;
   amount: number;
   currency: string;
@@ -36,11 +38,12 @@ export type BachsPaymentToRecord = {
 export type BachsDeps = {
   /** The endpoint's signing secret, from Bachs → Developer Portal → Webhooks. */
   webhookSecret: string | undefined;
-  price: number;
   /** Fetches the checkout from Bachs; null if Bachs says it does not exist. Throws if Bachs cannot be reached. */
   fetchCheckout: (checkoutId: string) => Promise<BachsCheckout | null>;
-  /** The organization and months FinSeka stored when it created the checkout. */
-  checkoutFor: (reference: string) => Promise<{ orgId: string; months: number } | null>;
+  /** The organization, months and amount FinSeka stored when it created the checkout. */
+  checkoutFor: (
+    reference: string,
+  ) => Promise<{ orgId: string; months: number; amount: number } | null>;
   recordPayment: (payment: BachsPaymentToRecord) => Promise<{ duplicate: boolean }>;
 };
 
@@ -121,19 +124,22 @@ export async function applyCheckout(
   if (checkout.status !== "completed" || !PAID_STATUSES.has(paymentStatus)) {
     return { outcome: "ignored", reason: "payment not completed" };
   }
-  const target = checkout.reference ? await deps.checkoutFor(checkout.reference) : null;
-  if (!target) return { outcome: "ignored", reason: "no organization for this payment" };
+  const reference = checkout.reference;
+  const target = reference ? await deps.checkoutFor(reference) : null;
+  if (!reference || !target)
+    return { outcome: "ignored", reason: "no organization for this payment" };
   if (expectedOrgId && target.orgId !== expectedOrgId) {
     return { outcome: "ignored", reason: "payment belongs to another organization" };
   }
   const paidText = checkout.charge?.amount_paid;
   const amount = paidText && Number(paidText) > 0 ? Number(paidText) : Number(checkout.amount);
   const currency = String(checkout.currency ?? "").toUpperCase();
-  if (currency !== "NGN" || !(amount >= deps.price * target.months)) {
+  if (currency !== "NGN" || !(amount >= target.amount)) {
     return { outcome: "ignored", reason: "amount does not cover the months paid for" };
   }
   const { duplicate } = await deps.recordPayment({
     orgId: target.orgId,
+    reference,
     providerRef: checkout.checkout_id,
     amount,
     currency,

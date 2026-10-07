@@ -151,6 +151,9 @@ export function OrgBillingPanel({ orgId }: { orgId: string }) {
           Trial ends {shortDate(d.state.trial_ends_at)} · paid until{" "}
           {d.state.paid_until ? shortDate(d.state.paid_until) : "—"}
           {d.provider_email && ` · pays at Flutterwave as ${d.provider_email}`}
+          {d.state.price_locked_until &&
+            d.state.locked_price &&
+            ` · launch price ${naira(d.state.locked_price)} locked until ${shortDate(d.state.price_locked_until)}`}
         </p>
       </div>
 

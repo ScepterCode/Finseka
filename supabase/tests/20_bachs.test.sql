@@ -8,21 +8,22 @@ SET LOCAL ROLE service_role;
 
 SELECT create_bachs_checkout('finseka-ref-5', :'org2', :bola, 'bola@test.local', 5);
 SELECT tests.eq('the checkout remembers its organization and months',
-  billing_checkout('finseka-ref-5'), jsonb_build_object('org_id', :'org2'::uuid, 'months', 5));
+  billing_checkout('finseka-ref-5') - 'amount', jsonb_build_object('org_id', :'org2'::uuid, 'months', 5));
 SELECT tests.eq('an unknown reference finds nothing', billing_checkout('someone-else'), NULL::jsonb);
 SELECT tests.fails('more than 12 months at once is refused',
   format('SELECT create_bachs_checkout(''finseka-ref-13'', %L, NULL, NULL, 13)', :'org2'), 'check');
 
 SELECT tests.fails('a payment that covers fewer months is refused',
-  format('SELECT record_subscription_payment(%L, ''bachs'', ''chk_1'', 20000, ''NGN'', 5)', :'org2'), 'does not cover');
+  'SELECT record_bachs_payment(''finseka-ref-5'', ''chk_1'', 20000, ''NGN'', now(), NULL)', 'does not cover');
 SELECT tests.fails('another currency is refused',
-  format('SELECT record_subscription_payment(%L, ''bachs'', ''chk_1'', 25000, ''USD'', 5)', :'org2'), 'does not cover');
-SELECT record_subscription_payment(:'org2', 'bachs', 'chk_1', 25000, 'NGN', 5) AS paid \gset
+  'SELECT record_bachs_payment(''finseka-ref-5'', ''chk_1'', 25000, ''USD'', now(), NULL)', 'does not cover');
+SELECT record_bachs_payment('finseka-ref-5', 'chk_1', 25000, 'NGN', now(), NULL) AS paid \gset
 SELECT tests.eq('five months are paid for, from today',
   (:'paid'::jsonb ->> 'covers_until')::timestamptz - now() BETWEEN interval '150 days' AND interval '154 days', true);
 SELECT tests.eq('the same checkout is never counted twice',
-  record_subscription_payment(:'org2', 'bachs', 'chk_1', 25000, 'NGN', 5) ->> 'duplicate', 'true');
-SELECT record_subscription_payment(:'org2', 'bachs', 'chk_2', 60000, 'NGN', 12) AS more \gset
+  record_bachs_payment('finseka-ref-5', 'chk_1', 25000, 'NGN', now(), NULL) ->> 'duplicate', 'true');
+SELECT create_bachs_checkout('finseka-ref-12', :'org2', :bola, 'bola@test.local', 12);
+SELECT record_bachs_payment('finseka-ref-12', 'chk_2', 60000, 'NGN', now(), NULL) AS more \gset
 SELECT tests.eq('a year paid later is added after the five months',
   (:'more'::jsonb ->> 'covers_from')::timestamptz, (:'paid'::jsonb ->> 'covers_until')::timestamptz);
 
