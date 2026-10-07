@@ -11,11 +11,13 @@ import {
   History,
   Settings,
   ShieldAlert,
+  MessageCircle,
 } from "lucide-react";
 
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -26,6 +28,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { BrandMark } from "@/components/brand-mark";
+import { supportLink } from "@/lib/support";
 
 const items = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -116,6 +119,24 @@ export function AppSidebar({
           </SidebarGroup>
         )}
       </SidebarContent>
+
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip="Help on WhatsApp">
+              <a
+                href={supportLink(`Hello FinSeka, I need help with ${orgName}.`)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2"
+              >
+                <MessageCircle className="size-4" />
+                {!collapsed && <span>Help on WhatsApp</span>}
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }

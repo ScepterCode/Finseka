@@ -48,3 +48,10 @@ describe("reminderMessage", () => {
     );
   });
 });
+
+describe("supportLink", () => {
+  it("opens a chat with FinSeka customer care", async () => {
+    const { supportLink } = await import("./support");
+    expect(supportLink("Hi")).toBe("https://wa.me/2348167602397?text=Hi");
+  });
+});

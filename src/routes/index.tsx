@@ -9,12 +9,13 @@ import {
   Check,
   X,
   ArrowRight,
-  PhoneCall,
+  MessageCircle,
   Smartphone,
   Headphones,
   CloudCheck,
 } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
+import { SUPPORT_WHATSAPP_DISPLAY, supportLink } from "@/lib/support";
 import {
   Accordion,
   AccordionContent,
@@ -499,7 +500,8 @@ const realPeople = [
   {
     icon: Headphones,
     title: "24/7 helpline.",
-    body: "Stuck at 11 p.m.? Confused on a Sunday morning? Call us. Talk to a real human. We pick up. Every time.",
+    body: "Stuck at 11 p.m.? Confused on a Sunday morning? Message us on WhatsApp. Talk to a real human. We pick up. Every time.",
+    link: { href: supportLink(), label: `WhatsApp ${SUPPORT_WHATSAPP_DISPLAY}` },
   },
   {
     icon: CloudCheck,
@@ -521,13 +523,23 @@ function RealPeople() {
           </h2>
         </div>
         <div className="mt-10 grid gap-5 md:grid-cols-3">
-          {realPeople.map(({ icon: Icon, title, body }) => (
+          {realPeople.map(({ icon: Icon, title, body, link }) => (
             <div key={title} className="rounded-3xl border border-border bg-card p-7 shadow-soft">
               <span className="grid size-11 place-items-center rounded-2xl bg-primary-soft text-primary">
                 <Icon className="size-5" aria-hidden />
               </span>
               <h3 className="mt-5 text-lg font-semibold">{title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{body}</p>
+              {link && (
+                <a
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft transition-transform hover:scale-[1.02]"
+                >
+                  <MessageCircle className="size-4" aria-hidden /> {link.label}
+                </a>
+              )}
             </div>
           ))}
         </div>
@@ -653,10 +665,12 @@ function FinalCta() {
             Start my free 30 days now <ArrowRight className="size-4" aria-hidden />
           </Link>
           <a
-            href="tel:+2348000000000"
+            href={supportLink()}
+            target="_blank"
+            rel="noopener noreferrer"
             className="inline-flex items-center justify-center gap-2 rounded-full border border-primary-foreground/30 px-8 py-4 text-base font-semibold text-primary-foreground transition-colors hover:bg-primary-foreground/10"
           >
-            <PhoneCall className="size-4" aria-hidden /> Talk to a real human
+            <MessageCircle className="size-4" aria-hidden /> Talk to a real human on WhatsApp
           </a>
         </div>
         <p className="relative mt-6 text-sm text-primary-foreground/70">
@@ -672,7 +686,7 @@ const faqs = [
   { q: "Do I need a card to start?", a: "No. Zero. You sign up and start." },
   {
     q: "What if I’m not good with phones?",
-    a: "FinSeka was built for you. Big buttons. Clear labels. And if you get stuck, call our 24/7 helpline. A real person picks up.",
+    a: `FinSeka was built for you. Big buttons. Clear labels. And if you get stuck, message our 24/7 helpline on WhatsApp (${SUPPORT_WHATSAPP_DISPLAY}). A real person picks up.`,
   },
   {
     q: "Can my members see the records?",
@@ -724,9 +738,18 @@ function Footer() {
             associations and town unions.
           </p>
         </div>
-        <p className="text-sm text-muted-foreground">
-          © {new Date().getFullYear()} FinSeka. All rights reserved.
-        </p>
+        <div className="space-y-2 text-sm text-muted-foreground sm:text-right">
+          <a
+            href={supportLink()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 font-semibold text-foreground hover:text-primary"
+          >
+            <MessageCircle className="size-4" aria-hidden /> Customer care on WhatsApp:{" "}
+            {SUPPORT_WHATSAPP_DISPLAY}
+          </a>
+          <p>© {new Date().getFullYear()} FinSeka. All rights reserved.</p>
+        </div>
       </div>
     </footer>
   );
