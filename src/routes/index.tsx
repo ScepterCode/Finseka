@@ -606,13 +606,19 @@ function Pricing() {
               One plan for everybody
             </span>
           </div>
-          <p className="mt-3">
-            <span className="font-display text-4xl font-semibold">₦5,000</span>{" "}
+          <p className="mt-3 flex flex-wrap items-baseline gap-x-2">
+            <s className="font-display text-2xl text-muted-foreground" aria-label="was ₦7,000">
+              ₦7,000
+            </s>
+            <span className="font-display text-4xl font-semibold">₦5,000</span>
             <span className="text-muted-foreground">/ month</span>
+          </p>
+          <p className="mt-2 text-sm font-semibold text-primary">
+            Launch price — save ₦2,000 every month.
           </p>
           <p className="mt-3 text-sm text-muted-foreground">
             For your whole association — every member, every admin. Pay for 1 month or up to a year
-            (₦60,000) at once.
+            at once: <s>₦84,000</s> ₦60,000 for 12 months.
           </p>
           <PlanList items={proIncludes} />
           <div className="mt-auto pt-8">

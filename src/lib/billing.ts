@@ -3,6 +3,9 @@ import { shortDate } from "@/lib/format";
 
 const DAY = 24 * 60 * 60 * 1000;
 
+/** The standard monthly price, shown crossed out next to the launch price actually charged. */
+export const PRO_STANDARD_PRICE = 7000;
+
 export function daysUntil(at: string | null | undefined, now = Date.now()) {
   if (!at) return 0;
   return Math.max(0, Math.ceil((new Date(at).getTime() - now) / DAY));

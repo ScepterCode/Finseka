@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, type Billing } from "@/hooks/useAuth";
 import { cancelAutoRenew, getBillingOptions, startProCheckout } from "@/lib/billing.functions";
-import { billingSummary, daysUntil } from "@/lib/billing";
+import { billingSummary, daysUntil, PRO_STANDARD_PRICE } from "@/lib/billing";
 import { friendlyError } from "@/lib/errors";
 import { naira, shortDate } from "@/lib/format";
 import { SUPPORT_WHATSAPP_DISPLAY, supportLink } from "@/lib/support";
@@ -40,7 +40,7 @@ export function BillingBanner() {
     ? "Your FinSeka plan has ended. You can still see all your records, but you can’t record, download or print anything until you upgrade to Pro."
     : billing.status === "grace"
       ? `Your Pro payment is overdue. Pay by ${shortDate(billing.grace_ends_at)} to keep recording.`
-      : `${trialLeft} day${trialLeft === 1 ? "" : "s"} left in your free trial. Upgrade to Pro (${naira(billing.price)} a month) to keep recording after ${shortDate(billing.trial_ends_at)}.`;
+      : `${trialLeft} day${trialLeft === 1 ? "" : "s"} left in your free trial. Upgrade to Pro (${naira(billing.price)} a month at the launch price) to keep recording after ${shortDate(billing.trial_ends_at)}.`;
 
   return (
     <>
@@ -69,6 +69,30 @@ export function BillingBanner() {
         )}
       </div>
     </>
+  );
+}
+
+/** "₦7,000 ₦5,000 a month · Launch price": the standard price crossed out next to the price charged. */
+function ProPrice({ price }: { price: number }) {
+  const discounted = price < PRO_STANDARD_PRICE;
+  return (
+    <p className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+      {discounted && (
+        <s
+          className="text-lg text-muted-foreground"
+          aria-label={`was ${naira(PRO_STANDARD_PRICE)}`}
+        >
+          {naira(PRO_STANDARD_PRICE)}
+        </s>
+      )}
+      <span className="font-display text-2xl font-semibold">{naira(price)}</span>
+      <span className="text-sm text-muted-foreground">a month</span>
+      {discounted && (
+        <Badge variant="secondary" className="self-center">
+          Launch price
+        </Badge>
+      )}
+    </p>
   );
 }
 
@@ -150,9 +174,9 @@ export function BillingSection() {
         </Badge>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">{billingSummary(billing)}</p>
+      <ProPrice price={billing.price} />
       <p className="mt-1 text-sm text-muted-foreground">
-        FinSeka Pro is {naira(billing.price)} a month for your whole organization: every member,
-        every admin. Questions about your plan?{" "}
+        For your whole organization: every member, every admin. Questions about your plan?{" "}
         <a
           href={supportLink(
             `Hello FinSeka, I have a question about the plan for ${org?.name ?? "my organization"}.`,
@@ -188,6 +212,11 @@ export function BillingSection() {
                     {Array.from({ length: options.data.maxMonths }, (_, i) => i + 1).map((n) => (
                       <SelectItem key={n} value={String(n)}>
                         {n === 12 ? "1 year (12 months)" : `${n} month${n === 1 ? "" : "s"}`} —{" "}
+                        {billing.price < PRO_STANDARD_PRICE && (
+                          <s className="mr-1 text-muted-foreground">
+                            {naira(PRO_STANDARD_PRICE * n)}
+                          </s>
+                        )}
                         {naira(billing.price * n)}
                       </SelectItem>
                     ))}
