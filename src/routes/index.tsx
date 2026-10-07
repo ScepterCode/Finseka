@@ -548,7 +548,8 @@ function RealPeople() {
   );
 }
 
-// Prices must match what the app charges (lib/billing.server.ts PRO_PRICE, 1 to 12 months at once).
+// Prices must match what the app charges: pro_monthly_price() (launch, locked for a first year of
+// Pro) and pro_standard_price() in the database, 1 to 12 months at once.
 const freeIncludes = [
   "All six screens",
   "Unlimited members & entries",
@@ -615,6 +616,10 @@ function Pricing() {
           </p>
           <p className="mt-2 text-sm font-semibold text-primary">
             Launch price — save ₦2,000 every month.
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Lock in ₦5,000 a month for your first 12 months of Pro. After that, the standard price
+            (₦7,000) applies. That’s ₦24,000 saved in your first year.
           </p>
           <p className="mt-3 text-sm text-muted-foreground">
             For your whole association — every member, every admin. Pay for 1 month or up to a year

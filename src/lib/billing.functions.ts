@@ -79,7 +79,8 @@ export const startProCheckout = createServerFn({ method: "POST" })
       if (!(months >= 1 && months <= MAX_MONTHS)) {
         throw new Error(`Choose between 1 and ${MAX_MONTHS} months.`);
       }
-      const { error } = await supabaseAdmin.rpc("create_bachs_checkout", {
+      // The database works out the price (a locked launch price where it applies) and stores it.
+      const { data: amount, error } = await supabaseAdmin.rpc("start_bachs_checkout", {
         _reference: reference,
         _org_id: org.id,
         _by: context.userId,
@@ -89,7 +90,7 @@ export const startProCheckout = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
       const link = await createBachsCheckout({
         reference,
-        amount: PRO_PRICE * months,
+        amount: Number(amount),
         months,
         orgId: org.id,
         orgName: org.name,

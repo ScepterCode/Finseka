@@ -1236,6 +1236,23 @@ export type Database = {
         Returns: undefined;
       };
       billing_checkout: { Args: { _reference: string }; Returns: Json };
+      start_bachs_checkout: {
+        Args: { _by: string; _email: string; _months: number; _org_id: string; _reference: string };
+        Returns: number;
+      };
+      record_bachs_payment: {
+        Args: {
+          _amount: number;
+          _checkout_id: string;
+          _currency: string;
+          _paid_at: string;
+          _raw: Json;
+          _reference: string;
+        };
+        Returns: Json;
+      };
+      pro_quote: { Args: { _months: number; _org_id: string }; Returns: number };
+      my_pro_quotes: { Args: never; Returns: Json };
       org_for_payer_email: { Args: { _email: string }; Returns: string | null };
       mark_auto_renew_cancelled: { Args: { _org_id: string }; Returns: undefined };
       admin_orgs: {
