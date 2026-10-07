@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { CreditCard, Loader2 } from "lucide-react";
+import { CreditCard, Loader2, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +11,7 @@ import { cancelAutoRenew, getBillingOptions, startProCheckout } from "@/lib/bill
 import { billingSummary, daysUntil } from "@/lib/billing";
 import { friendlyError } from "@/lib/errors";
 import { naira, shortDate } from "@/lib/format";
+import { SUPPORT_WHATSAPP_DISPLAY, supportLink } from "@/lib/support";
 import { ConfirmButton } from "@/components/confirm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,7 +74,7 @@ export function BillingBanner() {
 
 // Settings → Billing: the plan, how to pay, and past payments.
 export function BillingSection() {
-  const { billing, refreshMe } = useAuth();
+  const { billing, org, refreshMe } = useAuth();
   const getOptions = useServerFn(getBillingOptions);
   const checkout = useServerFn(startProCheckout);
   const cancel = useServerFn(cancelAutoRenew);
@@ -151,7 +152,18 @@ export function BillingSection() {
       <p className="mt-1 text-sm text-muted-foreground">{billingSummary(billing)}</p>
       <p className="mt-1 text-sm text-muted-foreground">
         FinSeka Pro is {naira(billing.price)} a month for your whole organization: every member,
-        every admin.
+        every admin. Questions about your plan?{" "}
+        <a
+          href={supportLink(
+            `Hello FinSeka, I have a question about the plan for ${org?.name ?? "my organization"}.`,
+          )}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-primary hover:underline"
+        >
+          Chat with us on WhatsApp
+        </a>
+        .
       </p>
 
       {canManage.data === false && needsPayment && (
@@ -228,12 +240,24 @@ export function BillingSection() {
                   {options.data.bankDetails}
                 </p>
               ) : (
-                <p className="mt-1 text-muted-foreground">Contact FinSeka for payment details.</p>
+                <p className="mt-1 text-muted-foreground">
+                  Message FinSeka on WhatsApp for the account details.
+                </p>
               )}
               <p className="mt-2 text-xs text-muted-foreground">
                 Use your organization’s name as the reference. FinSeka turns on Pro once the payment
-                arrives.
+                arrives. Sending your receipt on WhatsApp makes it faster.
               </p>
+              <a
+                href={supportLink(
+                  `Hello FinSeka, I want to pay for Pro by bank transfer for ${org?.name ?? "my organization"}.`,
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
+              >
+                <MessageCircle className="size-4" aria-hidden /> WhatsApp {SUPPORT_WHATSAPP_DISPLAY}
+              </a>
             </div>
           )}
         </div>

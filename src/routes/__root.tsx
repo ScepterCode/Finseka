@@ -76,6 +76,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "theme-color", content: "#722F37" },
       { title: "FinSeka — Association dues & money records made simple" },
       {
         name: "description",
@@ -105,6 +106,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: "/favicon.ico?v=2", type: "image/x-icon", sizes: "any" },
       { rel: "icon", href: "/brand/favicon-32.png?v=2", type: "image/png", sizes: "32x32" },
       { rel: "apple-touch-icon", href: "/brand/apple-touch-icon.png?v=2", sizes: "180x180" },
+      // Lets phones add FinSeka to the home screen and open it like an app.
+      { rel: "manifest", href: "/manifest.webmanifest" },
     ],
   }),
 
