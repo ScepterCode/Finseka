@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { SUPPORT_WHATSAPP_DISPLAY, supportLink } from "@/lib/support";
+import { InstallApp } from "@/components/install-app";
 import {
   Accordion,
   AccordionContent,
@@ -158,6 +159,17 @@ function Hero() {
               See how it works
             </a>
           </div>
+          <InstallApp
+            render={(onClick) => (
+              <button
+                type="button"
+                onClick={onClick}
+                className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
+              >
+                <Smartphone className="size-4" aria-hidden /> Install the app on your phone
+              </button>
+            )}
+          />
           <p className="mt-4 max-w-xl text-sm text-muted-foreground">
             Works on any Android or iPhone. Add it to your home screen straight from your browser
             and use it like a normal app. Built for people who’ve never used accounting software.
@@ -496,6 +508,7 @@ const realPeople = [
     icon: Smartphone,
     title: "It’s an app on your phone.",
     body: "Open FinSeka in your phone’s browser and add it to your home screen. It sits there like WhatsApp or your banking app. No laptop required. No internet café.",
+    install: true,
   },
   {
     icon: Headphones,
@@ -523,13 +536,26 @@ function RealPeople() {
           </h2>
         </div>
         <div className="mt-10 grid gap-5 md:grid-cols-3">
-          {realPeople.map(({ icon: Icon, title, body, link }) => (
+          {realPeople.map(({ icon: Icon, title, body, link, install }) => (
             <div key={title} className="rounded-3xl border border-border bg-card p-7 shadow-soft">
               <span className="grid size-11 place-items-center rounded-2xl bg-primary-soft text-primary">
                 <Icon className="size-5" aria-hidden />
               </span>
               <h3 className="mt-5 text-lg font-semibold">{title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{body}</p>
+              {install && (
+                <InstallApp
+                  render={(onClick) => (
+                    <button
+                      type="button"
+                      onClick={onClick}
+                      className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft transition-transform hover:scale-[1.02]"
+                    >
+                      <Smartphone className="size-4" aria-hidden /> Install the app
+                    </button>
+                  )}
+                />
+              )}
               {link && (
                 <a
                   href={link.href}

@@ -12,6 +12,7 @@ import {
   Settings,
   ShieldAlert,
   MessageCircle,
+  Smartphone,
 } from "lucide-react";
 
 import {
@@ -29,6 +30,7 @@ import {
 } from "@/components/ui/sidebar";
 import { BrandMark } from "@/components/brand-mark";
 import { supportLink } from "@/lib/support";
+import { InstallApp } from "@/components/install-app";
 
 const items = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -122,6 +124,16 @@ export function AppSidebar({
 
       <SidebarFooter>
         <SidebarMenu>
+          <InstallApp
+            render={(onClick) => (
+              <SidebarMenuItem>
+                <SidebarMenuButton tooltip="Install the app" onClick={onClick}>
+                  <Smartphone className="size-4" />
+                  {!collapsed && <span>Install the app</span>}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
+          />
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="Help on WhatsApp">
               <a

@@ -12,6 +12,8 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/hooks/useAuth";
 import { initMonitoring, reportError } from "@/lib/monitoring";
+// Loaded here so the browser's install offer, which comes early, is caught on every page.
+import "@/lib/install";
 import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
