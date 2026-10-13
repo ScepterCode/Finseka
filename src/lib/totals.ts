@@ -50,7 +50,8 @@ export type ReportSummary = LedgerTotals & {
 };
 
 export type StandingLine = {
-  kind: "due" | "contribution";
+  /** "brought_forward": a debt from before FinSeka (ref_id is the debt, period_start its date). */
+  kind: "due" | "contribution" | "brought_forward";
   member_id: string;
   ref_id: string;
   ref_name: string;

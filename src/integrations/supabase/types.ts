@@ -766,6 +766,110 @@ export type Database = {
           },
         ];
       };
+      brought_forward_debts: {
+        Row: {
+          amount: number;
+          as_of: string;
+          cancel_reason: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          created_at: string;
+          id: string;
+          label: string;
+          member_id: string;
+          note: string | null;
+          org_id: string;
+        };
+        Insert: {
+          amount: number;
+          as_of?: string;
+          cancel_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          created_at?: string;
+          id?: string;
+          label: string;
+          member_id: string;
+          note?: string | null;
+          org_id: string;
+        };
+        Update: {
+          amount?: number;
+          as_of?: string;
+          cancel_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          created_at?: string;
+          id?: string;
+          label?: string;
+          member_id?: string;
+          note?: string | null;
+          org_id?: string;
+        };
+        Relationships: [];
+      };
+      brought_forward_payments: {
+        Row: {
+          amount: number;
+          channel: Database["public"]["Enums"]["payment_channel"];
+          client_ref: string | null;
+          created_at: string;
+          debt_id: string;
+          id: string;
+          member_id: string;
+          method: Database["public"]["Enums"]["payment_method"];
+          note: string | null;
+          org_id: string;
+          paid_at: string;
+          reference: string | null;
+          void_reason: string | null;
+          voided_at: string | null;
+          voided_by: string | null;
+        };
+        Insert: {
+          amount: number;
+          channel: Database["public"]["Enums"]["payment_channel"];
+          client_ref?: string | null;
+          created_at?: string;
+          debt_id: string;
+          id?: string;
+          member_id?: string;
+          method?: Database["public"]["Enums"]["payment_method"];
+          note?: string | null;
+          org_id: string;
+          paid_at?: string;
+          reference?: string | null;
+          void_reason?: string | null;
+          voided_at?: string | null;
+          voided_by?: string | null;
+        };
+        Update: {
+          amount?: number;
+          channel?: Database["public"]["Enums"]["payment_channel"];
+          client_ref?: string | null;
+          created_at?: string;
+          debt_id?: string;
+          id?: string;
+          member_id?: string;
+          method?: Database["public"]["Enums"]["payment_method"];
+          note?: string | null;
+          org_id?: string;
+          paid_at?: string;
+          reference?: string | null;
+          void_reason?: string | null;
+          voided_at?: string | null;
+          voided_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "brought_forward_payments_debt_id_fkey";
+            columns: ["debt_id"];
+            isOneToOne: false;
+            referencedRelation: "brought_forward_debts";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       pledge_payments: {
         Row: {
           amount: number;
@@ -927,6 +1031,7 @@ export type Database = {
           logo_url: string | null;
           name: string;
           opening_balance_set: boolean;
+          brought_forward_done: boolean;
         };
         Insert: {
           fiscal_year_start_month?: number;
@@ -936,6 +1041,7 @@ export type Database = {
           logo_url?: string | null;
           name: string;
           opening_balance_set?: boolean;
+          brought_forward_done?: boolean;
         };
         Update: {
           fiscal_year_start_month?: number;
@@ -945,6 +1051,7 @@ export type Database = {
           logo_url?: string | null;
           name?: string;
           opening_balance_set?: boolean;
+          brought_forward_done?: boolean;
         };
         Relationships: [];
       };
@@ -1017,6 +1124,24 @@ export type Database = {
       };
     };
     Views: {
+      brought_forward_status: {
+        Row: {
+          amount: number;
+          as_of: string;
+          cancel_reason: string | null;
+          cancelled_at: string | null;
+          created_at: string;
+          id: string;
+          label: string;
+          last_paid_at: string | null;
+          member_id: string;
+          note: string | null;
+          org_id: string;
+          outstanding: number;
+          paid: number;
+        };
+        Relationships: [];
+      };
       pledge_status: {
         Row: {
           amount: number;
@@ -1067,6 +1192,7 @@ export type Database = {
       member_balances: {
         Args: { _member_id?: string };
         Returns: {
+          brought_forward: number;
           contributions_owing: number;
           dues_owing: number;
           member_id: string;
@@ -1366,6 +1492,11 @@ export type Database = {
         Returns: string;
       };
       user_id_for_email: { Args: { _email: string }; Returns: string | null };
+      cancel_brought_forward_debt: {
+        Args: { _debt_id: string; _reason: string };
+        Returns: undefined;
+      };
+      set_brought_forward_done: { Args: { _done: boolean }; Returns: undefined };
       cancel_pledge: {
         Args: { _pledge_id: string; _reason: string };
         Returns: undefined;

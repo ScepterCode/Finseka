@@ -8,6 +8,7 @@ import { naira, shortDate } from "@/lib/format";
 import { fetchDashboardSummary } from "@/lib/totals";
 import { PageHeader, StatCard, EmptyState } from "@/components/page-parts";
 import { OpeningBalanceCard } from "@/components/opening-balance-card";
+import { BroughtForwardCard } from "@/components/brought-forward-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -75,6 +76,7 @@ function Dashboard() {
       />
 
       <OpeningBalanceCard />
+      <BroughtForwardCard />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard

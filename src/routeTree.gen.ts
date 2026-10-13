@@ -31,6 +31,7 @@ import { Route as AuthenticatedDuesIndexRouteImport } from './routes/_authentica
 import { Route as AuthenticatedDuesDueIdRouteImport } from './routes/_authenticated/dues.$dueId'
 import { Route as AuthenticatedMembersIndexRouteImport } from './routes/_authenticated/members.index'
 import { Route as AuthenticatedMembersMemberIdRouteImport } from './routes/_authenticated/members.$memberId'
+import { Route as AuthenticatedMembersBroughtForwardRouteImport } from './routes/_authenticated/members.brought-forward'
 import { Route as AuthenticatedPledgesIndexRouteImport } from './routes/_authenticated/pledges.index'
 import { Route as AuthenticatedPledgesDriveIdRouteImport } from './routes/_authenticated/pledges.$driveId'
 import { Route as AdminOrganizationsIndexRouteImport } from './routes/admin/organizations.index'
@@ -150,6 +151,12 @@ const AuthenticatedMembersMemberIdRoute =
     path: '/members/$memberId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedMembersBroughtForwardRoute =
+  AuthenticatedMembersBroughtForwardRouteImport.update({
+    id: '/members/brought-forward',
+    path: '/members/brought-forward',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedPledgesIndexRoute =
   AuthenticatedPledgesIndexRouteImport.update({
     id: '/pledges/',
@@ -192,6 +199,7 @@ export interface FileRoutesByFullPath {
   '/contributions/$contributionId': typeof AuthenticatedContributionsContributionIdRoute
   '/dues/$dueId': typeof AuthenticatedDuesDueIdRoute
   '/members/$memberId': typeof AuthenticatedMembersMemberIdRoute
+  '/members/brought-forward': typeof AuthenticatedMembersBroughtForwardRoute
   '/pledges/$driveId': typeof AuthenticatedPledgesDriveIdRoute
   '/admin/organizations/$orgId': typeof AdminOrganizationsOrgIdRoute
   '/contributions/': typeof AuthenticatedContributionsIndexRoute
@@ -218,6 +226,7 @@ export interface FileRoutesByTo {
   '/contributions/$contributionId': typeof AuthenticatedContributionsContributionIdRoute
   '/dues/$dueId': typeof AuthenticatedDuesDueIdRoute
   '/members/$memberId': typeof AuthenticatedMembersMemberIdRoute
+  '/members/brought-forward': typeof AuthenticatedMembersBroughtForwardRoute
   '/pledges/$driveId': typeof AuthenticatedPledgesDriveIdRoute
   '/admin/organizations/$orgId': typeof AdminOrganizationsOrgIdRoute
   '/contributions': typeof AuthenticatedContributionsIndexRoute
@@ -247,6 +256,7 @@ export interface FileRoutesById {
   '/_authenticated/contributions/$contributionId': typeof AuthenticatedContributionsContributionIdRoute
   '/_authenticated/dues/$dueId': typeof AuthenticatedDuesDueIdRoute
   '/_authenticated/members/$memberId': typeof AuthenticatedMembersMemberIdRoute
+  '/_authenticated/members/brought-forward': typeof AuthenticatedMembersBroughtForwardRoute
   '/_authenticated/pledges/$driveId': typeof AuthenticatedPledgesDriveIdRoute
   '/admin/organizations/$orgId': typeof AdminOrganizationsOrgIdRoute
   '/_authenticated/contributions/': typeof AuthenticatedContributionsIndexRoute
@@ -276,6 +286,7 @@ export interface FileRouteTypes {
     | '/contributions/$contributionId'
     | '/dues/$dueId'
     | '/members/$memberId'
+    | '/members/brought-forward'
     | '/pledges/$driveId'
     | '/admin/organizations/$orgId'
     | '/contributions/'
@@ -302,6 +313,7 @@ export interface FileRouteTypes {
     | '/contributions/$contributionId'
     | '/dues/$dueId'
     | '/members/$memberId'
+    | '/members/brought-forward'
     | '/pledges/$driveId'
     | '/admin/organizations/$orgId'
     | '/contributions'
@@ -330,6 +342,7 @@ export interface FileRouteTypes {
     | '/_authenticated/contributions/$contributionId'
     | '/_authenticated/dues/$dueId'
     | '/_authenticated/members/$memberId'
+    | '/_authenticated/members/brought-forward'
     | '/_authenticated/pledges/$driveId'
     | '/admin/organizations/$orgId'
     | '/_authenticated/contributions/'
@@ -504,6 +517,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMembersMemberIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/members/brought-forward': {
+      id: '/_authenticated/members/brought-forward'
+      path: '/members/brought-forward'
+      fullPath: '/members/brought-forward'
+      preLoaderRoute: typeof AuthenticatedMembersBroughtForwardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/pledges/': {
       id: '/_authenticated/pledges/'
       path: '/pledges'
@@ -546,6 +566,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedContributionsContributionIdRoute: typeof AuthenticatedContributionsContributionIdRoute
   AuthenticatedDuesDueIdRoute: typeof AuthenticatedDuesDueIdRoute
   AuthenticatedMembersMemberIdRoute: typeof AuthenticatedMembersMemberIdRoute
+  AuthenticatedMembersBroughtForwardRoute: typeof AuthenticatedMembersBroughtForwardRoute
   AuthenticatedPledgesDriveIdRoute: typeof AuthenticatedPledgesDriveIdRoute
   AuthenticatedContributionsIndexRoute: typeof AuthenticatedContributionsIndexRoute
   AuthenticatedDuesIndexRoute: typeof AuthenticatedDuesIndexRoute
@@ -565,6 +586,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedContributionsContributionIdRoute,
   AuthenticatedDuesDueIdRoute: AuthenticatedDuesDueIdRoute,
   AuthenticatedMembersMemberIdRoute: AuthenticatedMembersMemberIdRoute,
+  AuthenticatedMembersBroughtForwardRoute:
+    AuthenticatedMembersBroughtForwardRoute,
   AuthenticatedPledgesDriveIdRoute: AuthenticatedPledgesDriveIdRoute,
   AuthenticatedContributionsIndexRoute: AuthenticatedContributionsIndexRoute,
   AuthenticatedDuesIndexRoute: AuthenticatedDuesIndexRoute,

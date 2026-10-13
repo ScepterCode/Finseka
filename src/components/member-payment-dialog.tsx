@@ -108,6 +108,26 @@ export function MemberPaymentDialog({
           .map((p) => `${p.name}${p.period ? ` ${p.period}` : ""} ${naira(p.amount)}`)
           .join(", ")}`;
       }
+      if (debt.kind === "brought_forward") {
+        // The database takes the member from the debt.
+        const { error } = await supabase.from("brought_forward_payments").upsert(
+          {
+            org_id: orgId,
+            debt_id: debt.debtId,
+            amount: value,
+            paid_at: date,
+            channel: mode.channel,
+            reference: mode.reference.trim() || null,
+            note: note.trim() || null,
+            client_ref: clientRef,
+          },
+          { onConflict: "client_ref", ignoreDuplicates: true },
+        );
+        if (error) throw error;
+        return value < debt.owing
+          ? `Part payment of ${naira(value)} recorded for ${debt.title}`
+          : `${debt.title} paid in full`;
+      }
       const common = {
         org_id: orgId,
         member_id: memberId,
@@ -147,6 +167,8 @@ export function MemberPaymentDialog({
       for (const key of [
         "member-due-payments",
         "member-contrib-payments",
+        "member-bf-payments",
+        "member-bf-debts",
         "member-standing",
         "due-payments",
         "contribution-payments",

@@ -90,4 +90,44 @@ describe("buildStatement", () => {
     );
     expect(s.map((e) => e.balance)).toEqual([1000, 0]);
   });
+
+  it("shows a debt brought forward and what was paid towards it", () => {
+    const owed: StandingLine = {
+      kind: "brought_forward",
+      member_id: "m",
+      ref_id: "b1",
+      ref_name: "Old dues",
+      period_label: null,
+      is_current: false,
+      is_past: true,
+      expected: 6000,
+      paid: 2000,
+      short: 4000,
+      penalty: 0,
+      period_start: "2026-09-30",
+      period_end: "2026-09-30",
+    };
+    const s = buildStatement(
+      [owed, due("Oct 2026", "2026-10-01", "2026-10-31", 0)],
+      [],
+      [],
+      [
+        {
+          debt_id: "b1",
+          amount: 2000,
+          paid_at: "2026-10-05",
+          channel: "cash",
+          brought_forward_debts: { label: "Old dues" },
+        },
+        { debt_id: "b1", amount: 999, paid_at: "2026-10-06", voided_at: "x" },
+        { debt_id: "other-cancelled-debt", amount: 500, paid_at: "2026-10-06" },
+      ],
+    );
+    expect(s.map((e) => e.text)).toEqual([
+      "Brought forward — Old dues",
+      "Monthly — Oct 2026",
+      expect.stringMatching(/^Paid Old dues \(brought forward\) · /),
+    ]);
+    expect(s.map((e) => e.balance)).toEqual([6000, 7000, 5000]);
+  });
 });

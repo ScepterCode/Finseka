@@ -22,6 +22,8 @@ import { ReasonDialog } from "@/components/reason-dialog";
 import { RemindButton } from "@/components/remind-button";
 import { MemberStatement } from "@/components/member-statement";
 import { MemberPaymentDialog } from "@/components/member-payment-dialog";
+import { BroughtForwardPanel } from "@/components/brought-forward";
+import { useMemberBroughtForward } from "@/lib/brought-forward";
 import { AUTO, type Debt } from "@/lib/debts";
 import { MemberDetailsFields } from "@/components/member-details-fields";
 import {
@@ -176,6 +178,25 @@ function MemberProfile() {
     },
   });
 
+  const bfDebts = useMemberBroughtForward(memberId);
+  const bfPayments = useQuery({
+    queryKey: ["member-bf-payments", memberId],
+    queryFn: async () => {
+      const data = await fetchAll((from, to) =>
+        supabase
+          .from("brought_forward_payments")
+          .select(
+            "id, debt_id, amount, paid_at, method, channel, reference, note, voided_at, void_reason, brought_forward_debts(label)",
+          )
+          .eq("member_id", memberId)
+          .order("paid_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      );
+      return data;
+    },
+  });
+
   const branches = useQuery({
     queryKey: ["branches", orgId],
     enabled: !!orgId && isAdmin,
@@ -203,7 +224,7 @@ function MemberProfile() {
 
   // Payments are never deleted: cancelling keeps the record and reverses it in the ledger.
   const [cancelling, setCancelling] = useState<{
-    kind: "due" | "contribution";
+    kind: "due" | "contribution" | "brought_forward";
     id: string;
     label: string;
   } | null>(null);
@@ -222,6 +243,8 @@ function MemberProfile() {
       for (const key of [
         "member-due-payments",
         "member-contrib-payments",
+        "member-bf-payments",
+        "member-bf-debts",
         "member-standing",
         "due-payments",
         "contribution-payments",
@@ -245,7 +268,9 @@ function MemberProfile() {
     contributions.isLoading ||
     contribPayments.isLoading ||
     obligations.isLoading ||
-    standing.isLoading;
+    standing.isLoading ||
+    bfDebts.isLoading ||
+    bfPayments.isLoading;
 
   if (loading) {
     return (
@@ -287,6 +312,7 @@ function MemberProfile() {
   // Cancelled payments stay visible in the history but never count towards totals.
   const allDuePayments = duePayments.data ?? [];
   const allContribPayments = contribPayments.data ?? [];
+  const allBfPayments = bfPayments.data ?? [];
   const paymentsByDue = allDuePayments.filter((p) => !p.voided_at);
   const cPayments = allContribPayments.filter((p) => !p.voided_at);
   const pickedIds = new Set(obligations.data ?? []);
@@ -364,6 +390,7 @@ function MemberProfile() {
     .filter((l) => l.short > 0 && !(l.kind === "contribution" && closedContributions.has(l.ref_id)))
     .sort(
       (a, b) =>
+        Number(a.kind !== "brought_forward") - Number(b.kind !== "brought_forward") ||
         (a.period_start ?? "9999-12-31").localeCompare(b.period_start ?? "9999-12-31") ||
         (a.kind === b.kind ? 0 : a.kind === "due" ? -1 : 1) ||
         a.ref_name.localeCompare(b.ref_name),
@@ -379,20 +406,44 @@ function MemberProfile() {
             owing: l.short,
             penalty: l.penalty,
           }
-        : { kind: "contribution", contributionId: l.ref_id, title: l.ref_name, owing: l.short },
+        : l.kind === "brought_forward"
+          ? {
+              kind: "brought_forward",
+              debtId: l.ref_id,
+              title: `${l.ref_name} (brought forward)`,
+              owing: l.short,
+            }
+          : { kind: "contribution", contributionId: l.ref_id, title: l.ref_name, owing: l.short },
     );
   const details = detailsFromRow(member.data);
   const shownDetails = detailsList(details);
 
   const duesPaidTotal = paymentsByDue.reduce((s, p) => s + Number(p.amount), 0);
   const contribPaidTotal = cPayments.reduce((s, p) => s + Number(p.amount), 0);
-  const totalPaid = duesPaidTotal + contribPaidTotal;
+  const bfPaidTotal = allBfPayments
+    .filter((p) => !p.voided_at)
+    .reduce((s, p) => s + Number(p.amount), 0);
+  const totalPaid = duesPaidTotal + contribPaidTotal + bfPaidTotal;
   const duesOwing = dueRows.reduce((s, d) => s + d.arrears + d.penalties, 0);
   const contribOwing = contribRows.reduce((s, c) => s + c.owing, 0);
-  const totalOwing = duesOwing + contribOwing;
+  const bfOwing = lines
+    .filter((l) => l.kind === "brought_forward")
+    .reduce((s, l) => s + l.short, 0);
+  const totalOwing = duesOwing + contribOwing + bfOwing;
+  // "your dues, your contributions and what you owed from before", for the WhatsApp reminder.
+  const owedParts = [
+    duesOwing > 0 && "your dues",
+    contribOwing > 0 && "your contributions",
+    bfOwing > 0 && "what you owed from before",
+  ].filter((x): x is string => !!x);
+  const owedWhat =
+    owedParts.length > 1
+      ? `${owedParts.slice(0, -1).join(", ")} and ${owedParts[owedParts.length - 1]}`
+      : (owedParts[0] ?? "your dues");
+  const bfCount = (bfDebts.data ?? []).filter((d) => !d.cancelled_at).length;
   const tags = (member.data.tags as string[] | null) ?? [];
 
-  const statement = buildStatement(lines, allDuePayments, allContribPayments);
+  const statement = buildStatement(lines, allDuePayments, allContribPayments, allBfPayments);
 
   const history = [
     ...allDuePayments.map((p) => ({
@@ -414,6 +465,17 @@ function MemberProfile() {
       date: p.paid_at,
       kind: "Contribution",
       payKind: "contribution" as const,
+      voided: !!p.voided_at,
+      voidReason: p.void_reason,
+    })),
+    ...allBfPayments.map((p) => ({
+      id: p.id,
+      label: (p.brought_forward_debts as { label: string } | null)?.label ?? "Debt brought forward",
+      detail: `${paymentModeText(p.channel, p.reference, p.method)}${p.note ? ` · ${p.note}` : ""}`,
+      amount: Number(p.amount),
+      date: p.paid_at,
+      kind: "Brought forward",
+      payKind: "brought_forward" as const,
       voided: !!p.voided_at,
       voidReason: p.void_reason,
     })),
@@ -447,13 +509,7 @@ function MemberProfile() {
               phone={member.data.phone}
               memberName={member.data.name}
               orgName={org?.name ?? "your association"}
-              what={
-                contribOwing > 0 && duesOwing > 0
-                  ? "your dues and contributions"
-                  : contribOwing > 0
-                    ? "your contributions"
-                    : "your dues"
-              }
+              what={owedWhat}
               amount={totalOwing}
             />
             {isAdmin && debts.length > 0 && (
@@ -497,7 +553,13 @@ function MemberProfile() {
           label="Owing now"
           value={naira(totalOwing)}
           tone={totalOwing > 0 ? "bad" : "default"}
-          hint={totalOwing > 0 ? "Dues, late charges and contributions" : "Nothing outstanding"}
+          hint={
+            totalOwing > 0
+              ? bfOwing > 0
+                ? `Includes ${naira(bfOwing)} owed from before FinSeka`
+                : "Dues, late charges and contributions"
+              : "Nothing outstanding"
+          }
         />
         <StatCard
           label="Paid in dues / contributions"
@@ -511,6 +573,7 @@ function MemberProfile() {
           <TabsTrigger value="statement">Statement</TabsTrigger>
           <TabsTrigger value="dues">Dues to pay ({dueRows.length})</TabsTrigger>
           <TabsTrigger value="contributions">Contributions ({contribRows.length})</TabsTrigger>
+          <TabsTrigger value="brought-forward">Owed from before ({bfCount})</TabsTrigger>
           <TabsTrigger value="history">Payment history ({history.length})</TabsTrigger>
           <TabsTrigger value="pledges">Pledges ({pledges.data?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="details">Details</TabsTrigger>
@@ -676,6 +739,16 @@ function MemberProfile() {
               </table>
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="brought-forward" className="mt-5">
+          <BroughtForwardPanel
+            orgId={orgId!}
+            memberId={memberId}
+            memberName={member.data.name}
+            isAdmin={isAdmin}
+            onPay={(debtId) => setPaying(`brought_forward:${debtId}`)}
+          />
         </TabsContent>
 
         <TabsContent value="history" className="mt-5">
