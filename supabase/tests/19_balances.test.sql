@@ -78,10 +78,20 @@ INSERT INTO contribution_payments (org_id, contribution_id, member_id, amount, p
 SELECT :'org2', cm.contribution_id, cm.member_id, (1000 + random() * 5000)::int, '2026-07-01', 'cash'
 FROM contribution_members cm WHERE cm.org_id = :'org2' AND random() < 0.6;
 
+-- Debts brought forward for about half the members, some part-paid, one cancelled.
+INSERT INTO brought_forward_debts (org_id, member_id, label, amount, as_of)
+SELECT :'org2', id, 'Old dues', 1000 + (random() * 5000)::int, '2023-01-01'
+FROM members WHERE org_id = :'org2' AND random() < 0.5;
+INSERT INTO brought_forward_payments (org_id, debt_id, amount, paid_at, method)
+SELECT org_id, id, round(amount * 0.3), '2026-07-01', 'cash'
+FROM brought_forward_debts WHERE org_id = :'org2' AND random() < 0.5;
+UPDATE brought_forward_debts SET cancelled_at = now(), cancel_reason = 'Entered twice'
+WHERE id = (SELECT id FROM brought_forward_debts WHERE org_id = :'org2' ORDER BY random() LIMIT 1);
+
 -- Measure the freshly loaded tables, as Postgres does on its own shortly after a load. (The old
 -- standing_lines() reference is slow without it.)
 ANALYZE members, dues, due_rates, due_members, due_payments, contributions, contribution_members,
-        contribution_payments;
+        contribution_payments, brought_forward_debts, brought_forward_payments;
 
 -- ---------------------------------------------------------------------------
 -- Same answers, on several days
@@ -99,6 +109,7 @@ CREATE FUNCTION pg_temp.balance_differences() RETURNS bigint LANGUAGE sql AS $$
            coalesce(sum(l.short) FILTER (WHERE l.kind = 'due'), 0),
            coalesce(sum(l.penalty), 0),
            coalesce(sum(l.short) FILTER (WHERE l.kind = 'contribution'), 0),
+           coalesce(sum(l.short) FILTER (WHERE l.kind = 'brought_forward'), 0),
            coalesce(sum(l.short + l.penalty), 0)
     FROM members m LEFT JOIN standing_lines() l ON l.member_id = m.id
     WHERE m.org_id = current_org_id() AND m.active
@@ -182,6 +193,7 @@ SELECT tests.eq('one member''s balance matches their lines',
   0::bigint);
 
 -- And the data is awkward enough to matter.
-SELECT tests.eq('the test data has late charges, partial payments and owed contributions',
-  (SELECT sum(penalties) > 0 AND sum(dues_owing) > 0 AND sum(contributions_owing) > 0 FROM member_balances()),
+SELECT tests.eq('the test data has late charges, partial payments, owed contributions and old debts',
+  (SELECT sum(penalties) > 0 AND sum(dues_owing) > 0 AND sum(contributions_owing) > 0 AND sum(brought_forward) > 0
+   FROM member_balances()),
   true);

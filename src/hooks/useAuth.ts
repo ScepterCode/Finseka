@@ -10,6 +10,8 @@ type Org = {
   name: string;
   logo_url: string | null;
   opening_balance_set: boolean;
+  /** Whether the "bring forward what members owed" step is done (or skipped). */
+  brought_forward_done?: boolean;
 };
 
 /** A FinSeka system admin working inside an organization for a limited time. */
@@ -114,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const [orgRes, adminRes] = await Promise.all([
           supabase
             .from("profiles")
-            .select("organizations(id, name, logo_url, opening_balance_set)")
+            .select("organizations(id, name, logo_url, opening_balance_set, brought_forward_done)")
             .eq("id", userId!)
             .maybeSingle(),
           supabase.rpc("is_org_admin"),

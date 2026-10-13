@@ -61,6 +61,55 @@ describe("describeChange", () => {
     expect(text).toBe("cancelled a dues payment of ₦400 for Bola — Recorded for the wrong member");
   });
 
+  it("describes debts brought forward, their corrections and payments", () => {
+    expect(
+      describeChange(
+        entry({
+          table_name: "brought_forward_debts",
+          new_row: { amount: 6000, member_id: "m1", label: "Old dues" },
+        }),
+        names,
+      ),
+    ).toBe("brought forward a debt of ₦6,000 for Bola (Old dues)");
+    expect(
+      describeChange(
+        entry({
+          table_name: "brought_forward_debts",
+          action: "update",
+          old_row: { amount: 6000, member_id: "m1", label: "Old dues", as_of: "2026-09-30" },
+          new_row: { amount: 5000, member_id: "m1", label: "Old dues", as_of: "2026-09-01" },
+        }),
+        names,
+      ),
+    ).toBe("edited a brought-forward debt for Bola (Old dues): changed amount, date owed");
+    expect(
+      describeChange(
+        entry({
+          table_name: "brought_forward_debts",
+          action: "update",
+          old_row: { amount: 5000, member_id: "m1", label: "Old dues", cancelled_at: null },
+          new_row: {
+            amount: 5000,
+            member_id: "m1",
+            label: "Old dues",
+            cancelled_at: "2026-10-13T10:00:00Z",
+            cancel_reason: "Paid in the old book",
+          },
+        }),
+        names,
+      ),
+    ).toBe("cancelled a brought-forward debt of ₦5,000 for Bola (Old dues) — Paid in the old book");
+    expect(
+      describeChange(
+        entry({
+          table_name: "brought_forward_payments",
+          new_row: { amount: 2000, member_id: "m1" },
+        }),
+        names,
+      ),
+    ).toBe("recorded a payment of ₦2,000 for Bola towards a debt brought forward");
+  });
+
   it("lists which member details changed", () => {
     const text = describeChange(
       entry({

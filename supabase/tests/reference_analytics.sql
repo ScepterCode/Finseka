@@ -47,6 +47,7 @@ AS $$
            CASE
              WHEN kind = 'due' AND period_end IS NOT NULL AND period_end < t.today THEN t.today - period_end
              WHEN kind = 'contribution' AND period_end IS NOT NULL AND period_end < t.today THEN t.today - period_end
+             WHEN kind = 'brought_forward' AND period_end < t.today THEN t.today - period_end
              ELSE 0
            END AS days_late
     FROM lines, t
@@ -109,6 +110,7 @@ AS $$
         SELECT count(*) FROM mem
         WHERE NOT EXISTS (SELECT 1 FROM due_payments p WHERE p.member_id = mem.id AND p.voided_at IS NULL)
           AND NOT EXISTS (SELECT 1 FROM contribution_payments p WHERE p.member_id = mem.id AND p.voided_at IS NULL)
+          AND NOT EXISTS (SELECT 1 FROM brought_forward_payments p WHERE p.member_id = mem.id AND p.voided_at IS NULL)
       ),
       'joined', (
         SELECT count(*) FROM members m

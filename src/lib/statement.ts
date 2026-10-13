@@ -26,6 +26,17 @@ type DuePayment = {
   dues?: { name: string } | null;
 };
 
+type BroughtForwardPayment = {
+  debt_id: string;
+  amount: number | string;
+  paid_at: string;
+  channel?: string | null;
+  reference?: string | null;
+  method?: string | null;
+  voided_at?: string | null;
+  brought_forward_debts?: { label: string } | null;
+};
+
 type ContributionPayment = {
   contribution_id: string;
   amount: number | string;
@@ -41,6 +52,7 @@ export function buildStatement(
   lines: StandingLine[],
   duePayments: DuePayment[],
   contributionPayments: ContributionPayment[],
+  broughtForwardPayments: BroughtForwardPayment[] = [],
 ): StatementEntry[] {
   type Row = Omit<StatementEntry, "balance"> & { order: number };
   const rows: Row[] = [];
@@ -64,6 +76,14 @@ export function buildStatement(
           order: 0,
         });
       }
+    } else if (l.kind === "brought_forward") {
+      rows.push({
+        date,
+        text: `Brought forward — ${l.ref_name}`,
+        charged: l.expected,
+        paid: 0,
+        order: 0,
+      });
     } else {
       rows.push({ date, text: l.ref_name, charged: l.expected, paid: 0, order: 0 });
     }
@@ -76,6 +96,21 @@ export function buildStatement(
     rows.push({
       date: p.paid_at,
       text: `Paid ${p.dues?.name ?? "dues"} (${p.period_label}) · ${paymentModeText(p.channel, p.reference, p.method)}`,
+      charged: 0,
+      paid: Number(p.amount),
+      order: 1,
+    });
+  }
+  // Payments towards a debt brought forward (a cancelled debt drops out of the lines, so its
+  // payments do too).
+  const owedForward = new Set(
+    lines.filter((l) => l.kind === "brought_forward").map((l) => l.ref_id),
+  );
+  for (const p of broughtForwardPayments) {
+    if (p.voided_at || !owedForward.has(p.debt_id)) continue;
+    rows.push({
+      date: p.paid_at,
+      text: `Paid ${p.brought_forward_debts?.label ?? "debt"} (brought forward) · ${paymentModeText(p.channel, p.reference, p.method)}`,
       charged: 0,
       paid: Number(p.amount),
       order: 1,

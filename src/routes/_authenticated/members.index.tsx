@@ -9,11 +9,13 @@ import { friendlyError } from "@/lib/errors";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAll } from "@/lib/fetch-all";
 import { useAuth } from "@/hooks/useAuth";
-import { initials, todayIso } from "@/lib/format";
+import { initials, naira, todayIso } from "@/lib/format";
 import { SearchBox } from "@/components/search-box";
 import { matchesPerson } from "@/lib/search";
 import { PageHeader, EmptyState } from "@/components/page-parts";
 import { MemberDetailsFields } from "@/components/member-details-fields";
+import { DebtLinesEditor } from "@/components/brought-forward";
+import { emptyDebtLine, filledDebtLines, type DebtLine } from "@/lib/brought-forward";
 import { detailsToRow, emptyDetails } from "@/lib/member-details";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -106,7 +108,10 @@ function MembersPage() {
         subtitle="Everybody on your list, their branch and the labels you gave them."
         action={
           isAdmin ? (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="outline" size="lg">
+                <Link to="/members/brought-forward">Owed from before</Link>
+              </Button>
               <AddBranchDialog onDone={invalidate} />
               <AddMemberDialog branches={branches.data ?? []} onDone={invalidate} />
             </div>
@@ -285,26 +290,44 @@ function AddMemberDialog({
   const [branchId, setBranchId] = useState<string>(branches[0]?.id ?? "");
   const [tags, setTags] = useState<string[]>([]);
   const [details, setDetails] = useState(emptyDetails);
+  const [owedBefore, setOwedBefore] = useState<DebtLine[]>([emptyDebtLine()]);
 
   const save = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("members").insert({
-        org_id: orgId!,
-        name,
-        phone: phone || null,
-        joined_on: joinedOn,
-        branch_id: branchId || null,
-        tags,
-        ...detailsToRow(details),
-      });
+      const { data: added, error } = await supabase
+        .from("members")
+        .insert({
+          org_id: orgId!,
+          name,
+          phone: phone || null,
+          joined_on: joinedOn,
+          branch_id: branchId || null,
+          tags,
+          ...detailsToRow(details),
+        })
+        .select("id")
+        .single();
       if (error) throw error;
+      const debts = filledDebtLines(owedBefore);
+      if (debts.length) {
+        const { error: debtError } = await supabase
+          .from("brought_forward_debts")
+          .insert(debts.map((d) => ({ ...d, org_id: orgId!, member_id: added.id })));
+        if (debtError) {
+          throw new Error(
+            `${name} was added, but what they owed from before was not saved (${friendlyError(debtError)}). Add it on their profile under “Owed from before”.`,
+          );
+        }
+      }
+      return debts.reduce((s, d) => s + d.amount, 0);
     },
-    onSuccess: () => {
-      toast.success("Member added");
+    onSuccess: (owed) => {
+      toast.success(owed > 0 ? `Member added, owing ${naira(owed)} from before` : "Member added");
       setName("");
       setPhone("");
       setTags([]);
       setDetails(emptyDetails);
+      setOwedBefore([emptyDebtLine()]);
       setOpen(false);
       onDone();
     },
@@ -375,6 +398,16 @@ function AddMemberDialog({
             </Select>
           </div>
           <TagPicker tags={tags} onChange={setTags} />
+          <fieldset className="space-y-2 rounded-2xl border border-border p-4">
+            <legend className="px-1 text-sm font-medium">
+              Did they owe anything before you started using FinSeka?
+            </legend>
+            <p className="text-xs text-muted-foreground">
+              Optional. Bring forward what your old book says they owe, one line per thing. It
+              counts in what they owe; money only enters the ledger when they pay.
+            </p>
+            <DebtLinesEditor value={owedBefore} onChange={setOwedBefore} idPrefix="m" />
+          </fieldset>
           <MemberDetailsFields value={details} onChange={setDetails} idPrefix="m" />
           <Button type="submit" size="lg" className="w-full" disabled={save.isPending}>
             {save.isPending && <Loader2 className="size-4 animate-spin" />} Save member

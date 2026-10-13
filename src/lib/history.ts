@@ -67,6 +67,9 @@ const fieldNames: Record<string, string> = {
   amount: "amount",
   promised_by: "promised date",
   closes_on: "closing date",
+  label: "label",
+  as_of: "date owed",
+  note: "note",
 };
 
 function changedFields(oldRow: Row | null, newRow: Row | null) {
@@ -112,6 +115,16 @@ export function describeChange(e: Entry, names: Map<string, string>) {
     case "pledge_payments":
       if (cancelled !== null) return `cancelled a pledge payment of ${amount}${cancelled}`;
       return `recorded a pledge payment of ${amount}`;
+    case "brought_forward_debts":
+      if (e.action === "insert")
+        return `brought forward a debt of ${amount} for ${member} (${String(row.label)})`;
+      if (e.new_row?.cancelled_at && !e.old_row?.cancelled_at)
+        return `cancelled a brought-forward debt of ${amount} for ${member} (${String(row.label)}) — ${String(e.new_row?.cancel_reason ?? "")}`;
+      return `edited a brought-forward debt for ${member} (${String(row.label)})${edited}`;
+    case "brought_forward_payments":
+      if (cancelled !== null)
+        return `cancelled a payment of ${amount} for ${member} towards a debt brought forward${cancelled}`;
+      return `recorded a payment of ${amount} for ${member} towards a debt brought forward`;
     case "members":
       if (e.action === "insert") return `added member ${String(row.name)}`;
       return `edited member ${String(row.name)}${edited}`;
