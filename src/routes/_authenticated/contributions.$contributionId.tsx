@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/money-input";
+import { CommitteePicker } from "@/components/committee-picker";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -189,6 +190,21 @@ function ContributionDetail() {
   });
 
   const [editing, setEditing] = useState(false);
+  // Everyone who can be put on the committee (loaded when the edit form opens).
+  const allMembers = useQuery({
+    queryKey: ["members", orgId, "active-names"],
+    enabled: !!orgId && isAdmin && editing,
+    queryFn: () =>
+      fetchAll((from, to) =>
+        supabase
+          .from("members")
+          .select("id, name, phone")
+          .eq("active", true)
+          .order("name")
+          .order("id")
+          .range(from, to),
+      ),
+  });
   const saveDetails = useMutation({
     mutationFn: async (patch: ContributionPatch) => {
       const { error } = await supabase.from("contributions").update(patch).eq("id", contributionId);
@@ -373,7 +389,9 @@ function ContributionDetail() {
               budget: c.budget_amount == null ? "" : String(c.budget_amount),
               target: c.target_amount == null ? "" : String(c.target_amount),
               acceptsPledges: c.accepts_pledges,
+              committee,
             }}
+            members={allMembers.data ?? []}
             pending={saveDetails.isPending}
             onSave={(patch) => saveDetails.mutate(patch)}
           />
@@ -570,7 +588,14 @@ function ContributionDetail() {
           />
         </div>
         <div className="rounded-3xl border border-border bg-card p-5 shadow-soft">
-          <p className="text-sm font-medium">Committee</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-medium">Committee</p>
+            {isAdmin && (
+              <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                {committee.length === 0 ? "Add committee" : "Change"}
+              </Button>
+            )}
+          </div>
           <div className="mt-2 flex flex-wrap gap-2">
             {committee.length === 0 ? (
               <span className="text-sm text-muted-foreground">No committee picked.</span>
@@ -768,10 +793,12 @@ type ContributionPatch = {
   budget_amount: number | null;
   target_amount: number | null;
   accepts_pledges: boolean;
+  committee: string[];
 };
 
 function EditContributionForm({
   initial,
+  members,
   pending,
   onSave,
 }: {
@@ -782,7 +809,9 @@ function EditContributionForm({
     budget: string;
     target: string;
     acceptsPledges: boolean;
+    committee: string[];
   };
+  members: { id: string; name: string; phone: string | null }[];
   pending: boolean;
   onSave: (patch: ContributionPatch) => void;
 }) {
@@ -792,6 +821,7 @@ function EditContributionForm({
   const [budget, setBudget] = useState(initial.budget);
   const [target, setTarget] = useState(initial.target);
   const [acceptsPledges, setAcceptsPledges] = useState(initial.acceptsPledges);
+  const [committee, setCommittee] = useState(initial.committee);
 
   return (
     <form
@@ -805,6 +835,7 @@ function EditContributionForm({
           budget_amount: budget ? Number(budget) : null,
           target_amount: target ? Number(target) : null,
           accepts_pledges: acceptsPledges,
+          committee,
         });
       }}
     >
@@ -833,6 +864,7 @@ function EditContributionForm({
         <Label htmlFor="ec-budget">Event budget (₦, optional)</Label>
         <MoneyInput id="ec-budget" min={0} value={budget} onChange={setBudget} />
       </div>
+      <CommitteePicker value={committee} onChange={setCommittee} members={members} idPrefix="ec" />
       <label className="flex items-start gap-3 rounded-2xl border border-border px-4 py-3 text-sm">
         <Checkbox checked={acceptsPledges} onCheckedChange={(v) => setAcceptsPledges(v === true)} />
         <span>

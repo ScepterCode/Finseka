@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/money-input";
+import { CommitteePicker } from "@/components/committee-picker";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
@@ -336,27 +337,12 @@ function NewContributionDialog({
               placeholder="How much the committee plans to spend"
             />
           </div>
-          <div className="space-y-2">
-            <Label>Committee ({committee.length} picked)</Label>
-            <div className="max-h-40 space-y-1 overflow-y-auto rounded-2xl border border-border p-3">
-              {members.map((m) => (
-                <label
-                  key={m.id}
-                  className="flex items-center gap-3 rounded-xl px-2 py-1.5 text-sm"
-                >
-                  <Checkbox
-                    checked={committee.includes(m.name)}
-                    onCheckedChange={(v) =>
-                      setCommittee((prev) =>
-                        v ? [...prev, m.name] : prev.filter((n) => n !== m.name),
-                      )
-                    }
-                  />
-                  {m.name}
-                </label>
-              ))}
-            </div>
-          </div>
+          <CommitteePicker
+            value={committee}
+            onChange={setCommittee}
+            members={members}
+            idPrefix="c"
+          />
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
