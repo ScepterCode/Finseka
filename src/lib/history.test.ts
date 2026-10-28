@@ -110,6 +110,24 @@ describe("describeChange", () => {
     ).toBe("recorded a payment of ₦2,000 for Bola towards a debt brought forward");
   });
 
+  it("describes an import and its undo", () => {
+    const imported = { member_count: 142, file_name: "members.xlsx", undone_at: null };
+    expect(describeChange(entry({ table_name: "member_imports", new_row: imported }), names)).toBe(
+      "imported 142 members from members.xlsx",
+    );
+    expect(
+      describeChange(
+        entry({
+          table_name: "member_imports",
+          action: "update",
+          old_row: imported,
+          new_row: { ...imported, undone_at: "2026-10-28T10:00:00Z" },
+        }),
+        names,
+      ),
+    ).toBe("undid the import of 142 members from members.xlsx");
+  });
+
   it("lists which member details changed", () => {
     const text = describeChange(
       entry({

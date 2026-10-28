@@ -870,6 +870,45 @@ export type Database = {
           },
         ];
       };
+      member_imports: {
+        Row: {
+          branch_count: number;
+          created_at: string;
+          created_by: string | null;
+          debt_total: number;
+          file_name: string | null;
+          id: string;
+          member_count: number;
+          org_id: string;
+          undone_at: string | null;
+          undone_by: string | null;
+        };
+        Insert: {
+          branch_count?: number;
+          created_at?: string;
+          created_by?: string | null;
+          debt_total?: number;
+          file_name?: string | null;
+          id?: string;
+          member_count?: number;
+          org_id: string;
+          undone_at?: string | null;
+          undone_by?: string | null;
+        };
+        Update: {
+          branch_count?: number;
+          created_at?: string;
+          created_by?: string | null;
+          debt_total?: number;
+          file_name?: string | null;
+          id?: string;
+          member_count?: number;
+          org_id?: string;
+          undone_at?: string | null;
+          undone_by?: string | null;
+        };
+        Relationships: [];
+      };
       pledge_payments: {
         Row: {
           amount: number;
@@ -1492,6 +1531,8 @@ export type Database = {
         Returns: string;
       };
       user_id_for_email: { Args: { _email: string }; Returns: string | null };
+      import_members: { Args: { _file_name?: string; _rows: Json }; Returns: Json };
+      undo_member_import: { Args: { _import_id: string }; Returns: number };
       cancel_brought_forward_debt: {
         Args: { _debt_id: string; _reason: string };
         Returns: undefined;

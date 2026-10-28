@@ -9,6 +9,7 @@ import { fetchDashboardSummary } from "@/lib/totals";
 import { PageHeader, StatCard, EmptyState } from "@/components/page-parts";
 import { OpeningBalanceCard } from "@/components/opening-balance-card";
 import { BroughtForwardCard } from "@/components/brought-forward-card";
+import { AddMembersCard } from "@/components/add-members-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -75,6 +76,7 @@ function Dashboard() {
         subtitle="Everything at a glance — money in hand, money being owed."
       />
 
+      <AddMembersCard memberCount={data.memberCount} />
       <OpeningBalanceCard />
       <BroughtForwardCard />
 
