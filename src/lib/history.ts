@@ -22,6 +22,9 @@ type Row = {
   pledger_name?: string;
   cancelled_at?: string | null;
   cancel_reason?: string | null;
+  member_count?: number;
+  file_name?: string | null;
+  undone_at?: string | null;
   [key: string]: unknown;
 };
 export type Entry = {
@@ -125,8 +128,15 @@ export function describeChange(e: Entry, names: Map<string, string>) {
       if (cancelled !== null)
         return `cancelled a payment of ${amount} for ${member} towards a debt brought forward${cancelled}`;
       return `recorded a payment of ${amount} for ${member} towards a debt brought forward`;
+    case "member_imports": {
+      const count = Number(row.member_count ?? 0);
+      const what = `${count} ${count === 1 ? "member" : "members"}${row.file_name ? ` from ${String(row.file_name)}` : ""}`;
+      if (e.new_row?.undone_at && !e.old_row?.undone_at) return `undid the import of ${what}`;
+      return `imported ${what}`;
+    }
     case "members":
       if (e.action === "insert") return `added member ${String(row.name)}`;
+      if (e.action === "delete") return `removed member ${String(row.name)}`;
       return `edited member ${String(row.name)}${edited}`;
     case "dues":
       if (e.action === "insert") return `created the due ${String(row.name)} (${amount})`;

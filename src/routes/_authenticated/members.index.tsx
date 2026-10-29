@@ -110,6 +110,9 @@ function MembersPage() {
           isAdmin ? (
             <div className="flex flex-wrap gap-2">
               <Button asChild variant="outline" size="lg">
+                <Link to="/members/import">Import from Excel</Link>
+              </Button>
+              <Button asChild variant="outline" size="lg">
                 <Link to="/members/brought-forward">Owed from before</Link>
               </Button>
               <AddBranchDialog onDone={invalidate} />
