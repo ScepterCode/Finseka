@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, ChevronRight } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronRight, ChevronsUpDown, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { friendlyError } from "@/lib/errors";
@@ -9,9 +9,19 @@ import { friendlyError } from "@/lib/errors";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAll } from "@/lib/fetch-all";
 import { useAuth } from "@/hooks/useAuth";
-import { initials, naira, todayIso } from "@/lib/format";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { naira, todayIso } from "@/lib/format";
 import { SearchBox } from "@/components/search-box";
-import { matchesPerson } from "@/lib/search";
+import {
+  defaultDir,
+  filterMembers,
+  sortMembers,
+  summarize,
+  type MemberRow,
+  type MemberSort,
+  type SortDir,
+} from "@/lib/member-list";
+import { cn } from "@/lib/utils";
 import { PageHeader, EmptyState } from "@/components/page-parts";
 import { MemberDetailsFields } from "@/components/member-details-fields";
 import { DebtLinesEditor } from "@/components/brought-forward";
@@ -21,6 +31,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -55,8 +73,13 @@ const suggestedTags = ["New", "Elder", "Executive", "Youth", "Women", "Exempt"];
 function MembersPage() {
   const { orgId, isAdmin } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState("all");
+  const [owingOnly, setOwingOnly] = useState(false);
+  const [sort, setSort] = useState<MemberSort>("name");
+  const [dir, setDir] = useState<SortDir>("asc");
 
   const members = useQuery({
     queryKey: ["members", orgId],
@@ -71,6 +94,18 @@ function MembersPage() {
           .range(from, to),
       );
       return data;
+    },
+  });
+
+  // What each active member owes, worked out in the database exactly as on their profile and the
+  // dashboard. Under "member-standing" so recording or cancelling a payment refreshes it.
+  const balances = useQuery({
+    queryKey: ["member-standing", "all", orgId],
+    enabled: !!orgId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("member_balances", {});
+      if (error) throw error;
+      return new Map((data ?? []).map((b) => [b.member_id, Number(b.total_owing)]));
     },
   });
 
@@ -89,23 +124,46 @@ function MembersPage() {
     queryClient.invalidateQueries({ queryKey: ["members"] });
     queryClient.invalidateQueries({ queryKey: ["branches"] });
     queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    queryClient.invalidateQueries({ queryKey: ["member-standing"] });
   };
 
-  const allTags = [
-    ...new Set((members.data ?? []).flatMap((m) => (m.tags as string[] | null) ?? [])),
-  ].sort();
+  const rows = useMemo<MemberRow[]>(
+    () =>
+      (members.data ?? []).map((m) => ({
+        id: m.id,
+        name: m.name,
+        phone: m.phone,
+        active: m.active,
+        tags: (m.tags as string[] | null) ?? [],
+        branch: (m.branches as { name: string } | null)?.name ?? null,
+        owing: m.active ? (balances.data?.get(m.id) ?? 0) : null,
+      })),
+    [members.data, balances.data],
+  );
 
-  const filtered = (members.data ?? []).filter((m) => {
-    const matchesName = matchesPerson(search, m.name, m.phone);
-    const tags = (m.tags as string[] | null) ?? [];
-    return matchesName && (tagFilter === "all" || tags.includes(tagFilter));
-  });
+  const allTags = useMemo(() => [...new Set(rows.flatMap((m) => m.tags))].sort(), [rows]);
+
+  const shown = useMemo(
+    () => sortMembers(filterMembers(rows, { search, tag: tagFilter, owingOnly }), sort, dir),
+    [rows, search, tagFilter, owingOnly, sort, dir],
+  );
+  const summary = summarize(shown);
+  const owingKnown = !!balances.data;
+
+  const sortBy = (next: MemberSort) => {
+    if (next === sort) setDir(dir === "asc" ? "desc" : "asc");
+    else {
+      setSort(next);
+      setDir(defaultDir(next));
+    }
+  };
+  const open = (id: string) => navigate({ to: "/members/$memberId", params: { memberId: id } });
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Members"
-        subtitle="Everybody on your list, their branch and the labels you gave them."
+        subtitle="Everybody on your list, their branch and what they owe today."
         action={
           isAdmin ? (
             <div className="flex flex-wrap gap-2">
@@ -122,24 +180,66 @@ function MembersPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-3">
-        <SearchBox value={search} onChange={setSearch} className="max-w-sm flex-1" />
-        {allTags.length > 0 && (
-          <div className="w-44">
-            <Select value={tagFilter} onValueChange={setTagFilter}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All labels</SelectItem>
-                {allTags.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-3">
+          <SearchBox value={search} onChange={setSearch} className="min-w-48 max-w-sm flex-1" />
+          {allTags.length > 0 && (
+            <div className="w-40">
+              <Select value={tagFilter} onValueChange={setTagFilter}>
+                <SelectTrigger aria-label="Filter by label">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All labels</SelectItem>
+                  {allTags.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <Button
+            type="button"
+            variant={owingOnly ? "default" : "outline"}
+            aria-pressed={owingOnly}
+            onClick={() => setOwingOnly(!owingOnly)}
+          >
+            Owing only
+          </Button>
+          {isMobile && (
+            <div className="w-40">
+              <Select
+                value={`${sort}:${dir}`}
+                onValueChange={(v) => {
+                  const [s, d] = v.split(":") as [MemberSort, SortDir];
+                  setSort(s);
+                  setDir(d);
+                }}
+              >
+                <SelectTrigger aria-label="Sort members">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name:asc">Name A–Z</SelectItem>
+                  <SelectItem value="name:desc">Name Z–A</SelectItem>
+                  <SelectItem value="owing:desc">Owes most</SelectItem>
+                  <SelectItem value="owing:asc">Owes least</SelectItem>
+                  <SelectItem value="branch:asc">Branch</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+        {members.data && (
+          <p className="text-sm text-muted-foreground">
+            {summary.members.toLocaleString("en-NG")} {summary.members === 1 ? "member" : "members"}
+            {owingKnown &&
+              (summary.owing > 0
+                ? ` · ${summary.owing.toLocaleString("en-NG")} owing ${naira(summary.total)}`
+                : " · nobody owing")}
+          </p>
         )}
       </div>
 
@@ -147,58 +247,150 @@ function MembersPage() {
         <div className="grid place-items-center py-16">
           <Loader2 className="size-6 animate-spin text-primary" />
         </div>
-      ) : filtered.length === 0 ? (
+      ) : shown.length === 0 ? (
         <EmptyState
           title="No members here"
-          hint="Add your first member — name, phone and branch is all you need."
+          hint={
+            rows.length > 0
+              ? "Nobody matches. Clear the search or filters to see everyone."
+              : "Add your first member — name, phone and branch is all you need."
+          }
         />
-      ) : (
+      ) : isMobile ? (
         <ul className="divide-y divide-border overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
-          {filtered.map((m) => {
-            const tags = (m.tags as string[] | null) ?? [];
-            return (
-              <li key={m.id}>
-                <Link
-                  to="/members/$memberId"
-                  params={{ memberId: m.id }}
-                  className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-secondary"
-                >
-                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary-soft font-semibold text-primary">
-                    {initials(m.name)}
+          {shown.map((m) => (
+            <li key={m.id}>
+              <Link
+                to="/members/$memberId"
+                params={{ memberId: m.id }}
+                className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-secondary"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2">
+                    <span className="truncate font-medium">{m.name}</span>
+                    {!m.active && <Badge variant="outline">Not active</Badge>}
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2">
-                      <span className="truncate font-medium">{m.name}</span>
-                      {!m.active && <Badge variant="outline">Not active</Badge>}
-                    </span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {m.phone || "No phone"}
-                    </span>
-                    {tags.length > 0 && (
-                      <span className="mt-1.5 flex flex-wrap gap-1.5">
-                        {tags.map((t) => (
-                          <Badge
-                            key={t}
-                            className="bg-primary-soft text-primary"
-                            variant="secondary"
-                          >
-                            {t}
-                          </Badge>
-                        ))}
-                      </span>
-                    )}
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {[m.phone || "No phone", m.branch].filter(Boolean).join(" · ")}
                   </span>
-                  <Badge variant="secondary" className="hidden sm:inline-flex">
-                    {(m.branches as { name: string } | null)?.name ?? "No branch"}
-                  </Badge>
-                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-                </Link>
-              </li>
-            );
-          })}
+                </span>
+                <Owing value={m.owing} known={owingKnown} />
+                <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+              </Link>
+            </li>
+          ))}
         </ul>
+      ) : (
+        <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <SortHead label="Name" col="name" sort={sort} dir={dir} onSort={sortBy} />
+                <SortHead label="Phone" col="phone" sort={sort} dir={dir} onSort={sortBy} />
+                <SortHead label="Branch" col="branch" sort={sort} dir={dir} onSort={sortBy} />
+                <SortHead
+                  label="Amount owed"
+                  col="owing"
+                  sort={sort}
+                  dir={dir}
+                  onSort={sortBy}
+                  right
+                />
+                <TableHead className="w-10">
+                  <span className="sr-only">Open</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {shown.map((m) => (
+                <TableRow key={m.id} className="cursor-pointer" onClick={() => open(m.id)}>
+                  <TableCell className="max-w-80 py-2.5 pl-5">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Link
+                        to="/members/$memberId"
+                        params={{ memberId: m.id }}
+                        className="truncate font-medium hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {m.name}
+                      </Link>
+                      {!m.active && <Badge variant="outline">Not active</Badge>}
+                      {m.tags.length > 0 && (
+                        <span
+                          className="truncate text-xs text-muted-foreground"
+                          title={m.tags.join(", ")}
+                        >
+                          {m.tags.join(", ")}
+                        </span>
+                      )}
+                    </span>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap py-2.5 text-muted-foreground">
+                    {m.phone || "—"}
+                  </TableCell>
+                  <TableCell className="py-2.5 text-muted-foreground">{m.branch ?? "—"}</TableCell>
+                  <TableCell className="py-2.5 text-right">
+                    <Owing value={m.owing} known={owingKnown} />
+                  </TableCell>
+                  <TableCell className="py-2.5 pr-4">
+                    <ChevronRight className="size-4 text-muted-foreground" />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </div>
+  );
+}
+
+/** What a member owes: red when they owe, "Paid up" when not, a dash for inactive members. */
+function Owing({ value, known }: { value: number | null; known: boolean }) {
+  if (value === null || !known) return <span className="text-sm text-muted-foreground">—</span>;
+  return value > 0 ? (
+    <span className="whitespace-nowrap text-sm font-semibold tabular-nums text-destructive">
+      {naira(value)}
+    </span>
+  ) : (
+    <span className="whitespace-nowrap text-sm text-success">Paid up</span>
+  );
+}
+
+function SortHead({
+  label,
+  col,
+  sort,
+  dir,
+  onSort,
+  right,
+}: {
+  label: string;
+  col: MemberSort;
+  sort: MemberSort;
+  dir: SortDir;
+  onSort: (col: MemberSort) => void;
+  right?: boolean;
+}) {
+  const active = sort === col;
+  const Icon = !active ? ChevronsUpDown : dir === "asc" ? ArrowUp : ArrowDown;
+  return (
+    <TableHead
+      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
+      className={cn(col === "name" && "pl-5", right && "text-right")}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(col)}
+        className={cn(
+          "inline-flex items-center gap-1 font-medium hover:text-foreground",
+          active && "text-foreground",
+        )}
+      >
+        {label}
+        <Icon className="size-3.5" />
+      </button>
+    </TableHead>
   );
 }
 
