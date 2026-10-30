@@ -74,7 +74,8 @@ function ContributionsPage() {
   });
 
   const members = useQuery({
-    queryKey: ["members", orgId],
+    // Its own key under "members": other pages cache a different set of member columns.
+    queryKey: ["members", orgId, "names"],
     enabled: !!orgId,
     queryFn: async () => {
       const data = await fetchAll((from, to) =>

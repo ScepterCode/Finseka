@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, ChevronRight, ChevronsUpDown, Loader2, Plus } from "lucide-react";
+import { ChevronRight, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { friendlyError } from "@/lib/errors";
@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { naira, todayIso } from "@/lib/format";
 import { SearchBox } from "@/components/search-box";
+import { SortHead } from "@/components/sort-head";
 import {
   defaultDir,
   filterMembers,
@@ -21,7 +22,6 @@ import {
   type MemberSort,
   type SortDir,
 } from "@/lib/member-list";
-import { cn } from "@/lib/utils";
 import { PageHeader, EmptyState } from "@/components/page-parts";
 import { MemberDetailsFields } from "@/components/member-details-fields";
 import { DebtLinesEditor } from "@/components/brought-forward";
@@ -285,7 +285,14 @@ function MembersPage() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <SortHead label="Name" col="name" sort={sort} dir={dir} onSort={sortBy} />
+                <SortHead
+                  label="Name"
+                  col="name"
+                  className="pl-5"
+                  sort={sort}
+                  dir={dir}
+                  onSort={sortBy}
+                />
                 <SortHead label="Phone" col="phone" sort={sort} dir={dir} onSort={sortBy} />
                 <SortHead label="Branch" col="branch" sort={sort} dir={dir} onSort={sortBy} />
                 <SortHead
@@ -354,43 +361,6 @@ function Owing({ value, known }: { value: number | null; known: boolean }) {
     </span>
   ) : (
     <span className="whitespace-nowrap text-sm text-success">Paid up</span>
-  );
-}
-
-function SortHead({
-  label,
-  col,
-  sort,
-  dir,
-  onSort,
-  right,
-}: {
-  label: string;
-  col: MemberSort;
-  sort: MemberSort;
-  dir: SortDir;
-  onSort: (col: MemberSort) => void;
-  right?: boolean;
-}) {
-  const active = sort === col;
-  const Icon = !active ? ChevronsUpDown : dir === "asc" ? ArrowUp : ArrowDown;
-  return (
-    <TableHead
-      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
-      className={cn(col === "name" && "pl-5", right && "text-right")}
-    >
-      <button
-        type="button"
-        onClick={() => onSort(col)}
-        className={cn(
-          "inline-flex items-center gap-1 font-medium hover:text-foreground",
-          active && "text-foreground",
-        )}
-      >
-        {label}
-        <Icon className="size-3.5" />
-      </button>
-    </TableHead>
   );
 }
 

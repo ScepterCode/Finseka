@@ -7,8 +7,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAll } from "@/lib/fetch-all";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { friendlyError } from "@/lib/errors";
-import { initials, naira, shortDate, todayIso } from "@/lib/format";
+import { naira, shortDate, todayIso } from "@/lib/format";
 import { DueAudienceFields } from "@/components/due-audience-fields";
 import { PaymentModeFields } from "@/components/method-select";
 import { defaultPaymentMode, type PaymentMode } from "@/lib/methods";
@@ -24,7 +25,6 @@ import { SearchBox } from "@/components/search-box";
 import { matchesPerson } from "@/lib/search";
 import { frequencyLabels, type Frequency } from "@/lib/periods";
 import { EmptyState, PageHeader, StatCard } from "@/components/page-parts";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/money-input";
@@ -43,7 +43,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { SortHead } from "@/components/sort-head";
+import {
+  OwingAmount,
+  PayStatusBadge,
+  RegisterList,
+  RegisterSortSelect,
+} from "@/components/payment-register";
+import {
+  countByFilter,
+  defaultDir,
+  matchesFilter,
+  payStatus,
+  sortRegister,
+  type RegisterFilter,
+  type RegisterSort,
+  type SortDir,
+} from "@/lib/register";
 
 export const Route = createFileRoute("/_authenticated/dues/$dueId")({
   head: () => ({
@@ -70,6 +95,11 @@ function DueDetail() {
   const [periodStart, setPeriodStart] = useState<string | null>(null);
   const [paying, setPaying] = useState<Member | null>(null);
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<RegisterFilter>("all");
+  // Not paid first: the people an admin is chasing.
+  const [sort, setSort] = useState<RegisterSort>("status");
+  const [dir, setDir] = useState<SortDir>("asc");
+  const isMobile = useIsMobile();
 
   const due = useQuery({
     queryKey: ["due", dueId],
@@ -87,7 +117,8 @@ function DueDetail() {
   });
 
   const members = useQuery({
-    queryKey: ["members", orgId],
+    // Its own key under "members": other pages cache a different set of member columns.
+    queryKey: ["members", orgId, "register"],
     enabled: !!orgId,
     queryFn: async () => {
       const data = await fetchAll((from, to) =>
@@ -288,8 +319,11 @@ function DueDetail() {
   }
 
   const paidByMember = new Map<string, number>();
+  const lastPaidOn = new Map<string, string>();
   for (const p of payments.data ?? []) {
     paidByMember.set(p.member_id, (paidByMember.get(p.member_id) ?? 0) + Number(p.amount));
+    const last = lastPaidOn.get(p.member_id);
+    if (!last || p.paid_at > last) lastPaidOn.set(p.member_id, p.paid_at);
   }
 
   const expected = Number(selected?.expected ?? due.data.amount);
@@ -299,16 +333,60 @@ function DueDetail() {
       appliesTo.data?.ids.has(m.id) &&
       (!selected?.period_end || m.joined_on <= selected.period_end),
   );
-  const paid = all.filter((m) => (paidByMember.get(m.id) ?? 0) >= expected && expected > 0);
-  const partial = all.filter(
-    (m) => (paidByMember.get(m.id) ?? 0) > 0 && (paidByMember.get(m.id) ?? 0) < expected,
+  const rows = all.map((m) => {
+    const paid = paidByMember.get(m.id) ?? 0;
+    return {
+      ...m,
+      member: m,
+      paid,
+      owing: Math.max(expected - paid, 0),
+      date: lastPaidOn.get(m.id) ?? null,
+      status: payStatus(paid, expected),
+    };
+  });
+  type Row = (typeof rows)[number];
+  const paidCount = rows.filter((r) => r.status === "paid").length;
+  // The totals above always cover everyone; the search and tabs only narrow the register below.
+  const searched = rows.filter((r) => matchesPerson(search, r.name, r.phone));
+  const counts = countByFilter(searched);
+  const shown = sortRegister(
+    searched.filter((r) => matchesFilter(r.status, filter)),
+    sort,
+    dir,
   );
-  const notPaid = all.filter((m) => !paidByMember.get(m.id));
-  // The totals above always cover everyone; the search only narrows the lists below.
-  const find = (list: Member[]) => list.filter((m) => matchesPerson(search, m.name, m.phone));
+  const sortBy = (next: RegisterSort) => {
+    if (next === sort) setDir(dir === "asc" ? "desc" : "asc");
+    else {
+      setSort(next);
+      setDir(defaultDir(next));
+    }
+  };
   const collected = [...paidByMember.values()].reduce((s, v) => s + v, 0);
   const overdue = selected?.is_past ?? false;
   const periodLabel = selected?.label ?? "";
+
+  // Remind anyone who still owes; an admin can record a payment for anyone not fully paid.
+  const actions = (r: Row) =>
+    r.status === "paid" ? null : (
+      <>
+        <RemindButton
+          phone={r.phone}
+          memberName={r.name}
+          orgName={org?.name ?? "your association"}
+          what={`${due.data!.name} (${periodLabel})`}
+          amount={r.owing}
+        />
+        {isAdmin && (
+          <Button
+            size="sm"
+            variant={r.paid > 0 ? "outline" : "default"}
+            onClick={() => setPaying(r.member)}
+          >
+            {r.paid > 0 ? "Add payment" : "Mark paid"}
+          </Button>
+        )}
+      </>
+    );
 
   return (
     <div className="space-y-8">
@@ -401,7 +479,7 @@ function DueDetail() {
           tone={overdue ? "bad" : "default"}
           hint={overdue ? "This period has passed — overdue" : "For this period"}
         />
-        <StatCard label="People paid" value={`${paid.length} of ${all.length}`} tone="accent" />
+        <StatCard label="People paid" value={`${paidCount} of ${all.length}`} tone="accent" />
       </div>
 
       {all.length === 0 ? (
@@ -411,73 +489,104 @@ function DueDetail() {
         />
       ) : (
         <div className="space-y-4">
-          <SearchBox value={search} onChange={setSearch} className="max-w-sm" />
-          <Tabs defaultValue="notpaid">
-            <TabsList>
-              <TabsTrigger value="notpaid">
-                {overdue ? "Overdue" : "Not paid"} ({find(notPaid).length})
-              </TabsTrigger>
-              <TabsTrigger value="paid">Paid ({find(paid).length})</TabsTrigger>
-              <TabsTrigger value="partial">Part payment ({find(partial).length})</TabsTrigger>
-            </TabsList>
+          <div className="flex flex-wrap items-center gap-3">
+            <SearchBox value={search} onChange={setSearch} className="w-full sm:w-64" />
+            <div className="max-w-full overflow-x-auto">
+              <Tabs value={filter} onValueChange={(v) => setFilter(v as RegisterFilter)}>
+                <TabsList>
+                  <TabsTrigger value="all">All ({counts.all})</TabsTrigger>
+                  <TabsTrigger value="unpaid">
+                    {overdue ? "Overdue" : "Not paid"} ({counts.unpaid})
+                  </TabsTrigger>
+                  <TabsTrigger value="part">Part payment ({counts.part})</TabsTrigger>
+                  <TabsTrigger value="paid">Paid ({counts.paid})</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+            {isMobile && (
+              <RegisterSortSelect
+                sort={sort}
+                dir={dir}
+                onChange={(s, d) => {
+                  setSort(s);
+                  setDir(d);
+                }}
+              />
+            )}
+          </div>
 
-            <TabsContent value="notpaid" className="mt-5">
-              <MemberList
-                members={find(notPaid)}
-                tone={overdue ? "bad" : "muted"}
-                action={(m) => (
-                  <>
-                    <RemindButton
-                      phone={m.phone}
-                      memberName={m.name}
-                      orgName={org?.name ?? "your association"}
-                      what={`${due.data!.name} (${periodLabel})`}
-                      amount={expected}
+          {shown.length === 0 ? (
+            <EmptyState title="Nobody here" hint="Nobody matches the search or tab you picked." />
+          ) : isMobile ? (
+            <RegisterList rows={shown} overdue={overdue} actions={actions} />
+          ) : (
+            <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <SortHead
+                      label="Name"
+                      col="name"
+                      className="pl-5"
+                      sort={sort}
+                      dir={dir}
+                      onSort={sortBy}
                     />
-                    {isAdmin && (
-                      <Button size="sm" onClick={() => setPaying(m)}>
-                        Mark paid
-                      </Button>
-                    )}
-                  </>
-                )}
-                note={() => (overdue ? "Overdue" : "Not paid")}
-              />
-            </TabsContent>
-
-            <TabsContent value="paid" className="mt-5">
-              <MemberList
-                members={find(paid)}
-                tone="good"
-                note={(m) => naira(paidByMember.get(m.id) ?? 0)}
-                action={() => <Check className="size-5 text-success" />}
-              />
-            </TabsContent>
-
-            <TabsContent value="partial" className="mt-5">
-              <MemberList
-                members={find(partial)}
-                tone="muted"
-                note={(m) => `${naira(paidByMember.get(m.id) ?? 0)} of ${naira(expected)}`}
-                action={(m) => (
-                  <>
-                    <RemindButton
-                      phone={m.phone}
-                      memberName={m.name}
-                      orgName={org?.name ?? "your association"}
-                      what={`${due.data!.name} (${periodLabel})`}
-                      amount={Math.max(expected - (paidByMember.get(m.id) ?? 0), 0)}
+                    <TableHead>Phone</TableHead>
+                    <SortHead label="Status" col="status" sort={sort} dir={dir} onSort={sortBy} />
+                    <SortHead label="Paid" col="paid" right sort={sort} dir={dir} onSort={sortBy} />
+                    <SortHead
+                      label="Owing"
+                      col="owing"
+                      right
+                      sort={sort}
+                      dir={dir}
+                      onSort={sortBy}
                     />
-                    {isAdmin && (
-                      <Button size="sm" variant="outline" onClick={() => setPaying(m)}>
-                        Add payment
-                      </Button>
-                    )}
-                  </>
-                )}
-              />
-            </TabsContent>
-          </Tabs>
+                    <SortHead label="Date paid" col="date" sort={sort} dir={dir} onSort={sortBy} />
+                    <TableHead className="pr-5">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {shown.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="max-w-64 py-2.5 pl-5">
+                        <Link
+                          to="/members/$memberId"
+                          params={{ memberId: r.id }}
+                          className="link block truncate font-medium"
+                        >
+                          {r.name}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap py-2.5 text-muted-foreground">
+                        {r.phone || "—"}
+                      </TableCell>
+                      <TableCell className="py-2.5">
+                        <PayStatusBadge status={r.status} overdue={overdue} />
+                      </TableCell>
+                      <TableCell className="py-2.5 text-right tabular-nums">
+                        {r.paid > 0 ? naira(r.paid) : "—"}
+                      </TableCell>
+                      <TableCell className="py-2.5 text-right">
+                        <OwingAmount value={r.owing} />
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap py-2.5 text-muted-foreground">
+                        {r.date ? shortDate(r.date) : "—"}
+                      </TableCell>
+                      <TableCell className="py-2.5 pr-5">
+                        <span className="flex justify-end gap-2">
+                          {actions(r) ?? <Check className="size-5 text-success" />}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </div>
       )}
 
@@ -702,57 +811,5 @@ function PaymentForm({
         {pending && <Loader2 className="size-4 animate-spin" />} Save payment
       </Button>
     </form>
-  );
-}
-
-function MemberList({
-  members,
-  note,
-  action,
-  tone,
-}: {
-  members: Member[];
-  note?: ((m: Member) => string) | undefined;
-  action?: ((m: Member) => React.ReactNode) | undefined;
-  tone: "good" | "bad" | "muted";
-}) {
-  if (members.length === 0) {
-    return <EmptyState title="Nobody here" hint="This list is empty for the chosen period." />;
-  }
-  const noteClass =
-    tone === "good"
-      ? "text-success"
-      : tone === "bad"
-        ? "text-destructive"
-        : "text-muted-foreground";
-
-  return (
-    <ul className="divide-y divide-border overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
-      {members.map((m) => (
-        <li key={m.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4">
-          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
-            {initials(m.name)}
-          </span>
-          <span className="min-w-0 flex-1">
-            <Link
-              to="/members/$memberId"
-              params={{ memberId: m.id }}
-              className="link block truncate"
-            >
-              {m.name}
-            </Link>
-            <span className="block truncate text-xs text-muted-foreground">
-              {m.phone || "No phone"}
-            </span>
-          </span>
-          {note && (
-            <Badge variant="secondary" className={`hidden sm:inline-flex ${noteClass}`}>
-              {note(m)}
-            </Badge>
-          )}
-          {action?.(m)}
-        </li>
-      ))}
-    </ul>
   );
 }

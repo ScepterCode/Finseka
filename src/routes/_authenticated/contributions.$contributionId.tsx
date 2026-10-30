@@ -9,6 +9,7 @@ import { friendlyError } from "@/lib/errors";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAll } from "@/lib/fetch-all";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { naira, shortDate, todayIso } from "@/lib/format";
 import { paymentModeText } from "@/lib/methods";
 import { EmptyState, PageHeader, StatCard } from "@/components/page-parts";
@@ -37,6 +38,31 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { SortHead } from "@/components/sort-head";
+import {
+  OwingAmount,
+  PayStatusBadge,
+  RegisterList,
+  RegisterSortSelect,
+} from "@/components/payment-register";
+import {
+  countByFilter,
+  defaultDir,
+  matchesFilter,
+  payStatus,
+  sortRegister,
+  type RegisterFilter,
+  type RegisterSort,
+  type SortDir,
+} from "@/lib/register";
 
 export const Route = createFileRoute("/_authenticated/contributions/$contributionId")({
   head: () => ({
@@ -57,15 +83,17 @@ export const Route = createFileRoute("/_authenticated/contributions/$contributio
 });
 
 type Person = { id: string; name: string; phone: string | null };
-type Status = "paid" | "part" | "unpaid" | "gave";
-type Filter = "all" | "paid" | "part" | "unpaid";
 
 function ContributionDetail() {
   const { contributionId } = Route.useParams();
   const { orgId, isAdmin, org } = useAuth();
   const qc = useQueryClient();
   const [paying, setPaying] = useState<Person | null>(null);
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<RegisterFilter>("all");
+  // Not paid first: the people an admin is chasing.
+  const [sort, setSort] = useState<RegisterSort>("status");
+  const [dir, setDir] = useState<SortDir>("asc");
+  const isMobile = useIsMobile();
   const [search, setSearch] = useState("");
   const [addingExpense, setAddingExpense] = useState(false);
   const pledges = usePledges({ contributionId });
@@ -299,22 +327,21 @@ function ContributionDetail() {
     const mine = pays.filter((p) => p.member_id === m.id);
     const paid = mine.reduce((s, p) => s + Number(p.amount), 0);
     const last = mine[0];
-    let status: Status;
-    if (!c.mandatory) status = paid > 0 ? "gave" : "unpaid";
-    else if (expected > 0 && paid >= expected) status = "paid";
-    else if (paid > 0) status = "part";
-    else status = "unpaid";
     return {
+      id: m.id,
+      name: m.name,
+      phone: m.phone,
       person: m,
       paid,
-      balance: c.mandatory ? Math.max(expected - paid, 0) : 0,
+      owing: c.mandatory ? Math.max(expected - paid, 0) : 0,
       date: last?.paid_at ?? null,
       method: last?.method ?? null,
       channel: last?.channel ?? null,
       reference: last?.reference ?? null,
-      status,
+      status: payStatus(paid, expected, c.mandatory),
     };
   });
+  type Row = (typeof rows)[number];
 
   const paidCount = rows.filter((r) => r.status === "paid" || r.status === "gave").length;
   const partCount = rows.filter((r) => r.status === "part").length;
@@ -328,15 +355,50 @@ function ContributionDetail() {
   const budget = Number(c.budget_amount ?? 0);
   const committee = (c.committee ?? []) as string[];
 
-  const shown = rows.filter(
-    (r) =>
-      matchesPerson(search, r.person.name, r.person.phone) &&
-      (filter === "all"
-        ? true
-        : filter === "paid"
-          ? r.status === "paid" || r.status === "gave"
-          : r.status === filter),
+  const searched = rows.filter((r) => matchesPerson(search, r.name, r.phone));
+  const counts = countByFilter(searched);
+  const shown = sortRegister(
+    searched.filter((r) => matchesFilter(r.status, filter)),
+    sort,
+    dir,
   );
+  const sortBy = (next: RegisterSort) => {
+    if (next === sort) setDir(dir === "asc" ? "desc" : "asc");
+    else {
+      setSort(next);
+      setDir(defaultDir(next));
+    }
+  };
+
+  // Remind anyone who still owes; while it is open an admin can record a payment for anyone not
+  // fully paid (anyone at all when there is no set amount).
+  const actions = (r: Row) => {
+    const remind = c.mandatory && r.owing > 0;
+    const pay = isAdmin && !c.closed && r.status !== "paid";
+    if (!remind && !pay) return null;
+    return (
+      <>
+        {remind && (
+          <RemindButton
+            phone={r.phone}
+            memberName={r.name}
+            orgName={org?.name ?? "your association"}
+            what={c.name}
+            amount={r.owing}
+          />
+        )}
+        {pay && (
+          <Button
+            size="sm"
+            variant={r.paid > 0 ? "outline" : "default"}
+            onClick={() => setPaying(r.person)}
+          >
+            {r.paid > 0 ? "Add payment" : "Mark paid"}
+          </Button>
+        )}
+      </>
+    );
+  };
 
   const total = Math.max(all.length, 1);
 
@@ -453,97 +515,133 @@ function ContributionDetail() {
               }}
             />
           )}
-          <SearchBox value={search} onChange={setSearch} className="w-full sm:w-64" />
-          <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
-            <TabsList>
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="paid">Paid</TabsTrigger>
-              {c.mandatory && <TabsTrigger value="part">Part</TabsTrigger>}
-              <TabsTrigger value="unpaid">Not paid</TabsTrigger>
-            </TabsList>
-          </Tabs>
         </div>
         {all.length === 0 ? (
           <EmptyState title="No members selected" hint="Nobody was picked for this contribution." />
         ) : (
-          <div className="overflow-x-auto rounded-3xl border border-border bg-card shadow-soft">
-            <table className="w-full min-w-[640px] text-sm">
-              <thead className="bg-secondary text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3">Name</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Paid</th>
-                  {c.mandatory && <th className="px-4 py-3 text-right">Owing</th>}
-                  <th className="px-4 py-3">Date paid</th>
-                  <th className="px-4 py-3">How</th>
-                  {isAdmin && !c.closed && <th className="px-4 py-3" />}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {shown.map((r) => (
-                  <tr key={r.person.id}>
-                    <td className="px-4 py-3">
-                      <Link
-                        to="/members/$memberId"
-                        params={{ memberId: r.person.id }}
-                        className="link"
-                      >
-                        {r.person.name}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={r.status} overdue={overdue} />
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium">{naira(r.paid)}</td>
-                    {c.mandatory && (
-                      <td
-                        className={`px-4 py-3 text-right ${r.balance > 0 ? "text-destructive" : ""}`}
-                      >
-                        {naira(r.balance)}
-                        {r.balance > 0 && (
-                          <RemindButton
-                            phone={r.person.phone}
-                            memberName={r.person.name}
-                            orgName={org?.name ?? "your association"}
-                            what={c.name}
-                            amount={r.balance}
-                          />
-                        )}
-                      </td>
-                    )}
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {r.date ? shortDate(r.date) : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      {r.method ? (
-                        <Badge variant="outline">
-                          {paymentModeText(r.channel, r.reference, r.method)}
-                        </Badge>
-                      ) : (
-                        "—"
+          <>
+            <div className="flex flex-wrap items-center gap-3">
+              <SearchBox value={search} onChange={setSearch} className="w-full sm:w-64" />
+              <div className="max-w-full overflow-x-auto">
+                <Tabs value={filter} onValueChange={(v) => setFilter(v as RegisterFilter)}>
+                  <TabsList>
+                    <TabsTrigger value="all">All ({counts.all})</TabsTrigger>
+                    <TabsTrigger value="unpaid">
+                      {overdue ? "Overdue" : "Not paid"} ({counts.unpaid})
+                    </TabsTrigger>
+                    {c.mandatory && <TabsTrigger value="part">Part ({counts.part})</TabsTrigger>}
+                    <TabsTrigger value="paid">
+                      {c.mandatory ? "Paid" : "Gave"} ({counts.paid})
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+              {isMobile && (
+                <RegisterSortSelect
+                  sort={sort}
+                  dir={dir}
+                  showOwing={c.mandatory}
+                  onChange={(s, d) => {
+                    setSort(s);
+                    setDir(d);
+                  }}
+                />
+              )}
+            </div>
+            {shown.length === 0 ? (
+              <EmptyState title="Nobody here" hint="Nobody matches the search or tab you picked." />
+            ) : isMobile ? (
+              <RegisterList rows={shown} overdue={overdue} actions={actions} />
+            ) : (
+              <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-soft">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <SortHead
+                        label="Name"
+                        col="name"
+                        className="pl-5"
+                        sort={sort}
+                        dir={dir}
+                        onSort={sortBy}
+                      />
+                      <SortHead label="Status" col="status" sort={sort} dir={dir} onSort={sortBy} />
+                      <SortHead
+                        label="Paid"
+                        col="paid"
+                        right
+                        sort={sort}
+                        dir={dir}
+                        onSort={sortBy}
+                      />
+                      {c.mandatory && (
+                        <SortHead
+                          label="Owing"
+                          col="owing"
+                          right
+                          sort={sort}
+                          dir={dir}
+                          onSort={sortBy}
+                        />
                       )}
-                    </td>
-                    {isAdmin && !c.closed && (
-                      <td className="px-4 py-3 text-right">
-                        {r.status !== "paid" && (
-                          <Button size="sm" onClick={() => setPaying(r.person)}>
-                            {r.paid > 0 ? "Add payment" : "Mark paid"}
-                          </Button>
+                      <SortHead
+                        label="Date paid"
+                        col="date"
+                        sort={sort}
+                        dir={dir}
+                        onSort={sortBy}
+                      />
+                      <TableHead>How</TableHead>
+                      <TableHead className="pr-5">
+                        <span className="sr-only">Actions</span>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {shown.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="max-w-64 py-2.5 pl-5">
+                          <Link
+                            to="/members/$memberId"
+                            params={{ memberId: r.id }}
+                            className="link block truncate font-medium"
+                          >
+                            {r.name}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="py-2.5">
+                          <PayStatusBadge status={r.status} overdue={overdue} />
+                        </TableCell>
+                        <TableCell className="py-2.5 text-right tabular-nums">
+                          {r.paid > 0 ? naira(r.paid) : "—"}
+                        </TableCell>
+                        {c.mandatory && (
+                          <TableCell className="py-2.5 text-right">
+                            <OwingAmount value={r.owing} />
+                          </TableCell>
                         )}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-                {shown.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
-                      Nobody here.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                        <TableCell className="whitespace-nowrap py-2.5 text-muted-foreground">
+                          {r.date ? shortDate(r.date) : "—"}
+                        </TableCell>
+                        <TableCell className="py-2.5">
+                          {r.method ? (
+                            <Badge variant="outline">
+                              {paymentModeText(r.channel, r.reference, r.method)}
+                            </Badge>
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
+                        <TableCell className="py-2.5 pr-5">
+                          <span className="flex justify-end gap-2">{actions(r)}</span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </>
         )}
       </section>
 
@@ -707,22 +805,6 @@ function Legend({ className, label }: { className: string; label: string }) {
     <span className="flex items-center gap-2">
       <span className={`size-3 rounded-full ${className}`} /> {label}
     </span>
-  );
-}
-
-function StatusBadge({ status, overdue }: { status: Status; overdue: boolean }) {
-  if (status === "paid" || status === "gave")
-    return (
-      <Badge className="bg-success/15 text-success hover:bg-success/15">
-        {status === "gave" ? "Gave" : "Paid"}
-      </Badge>
-    );
-  if (status === "part")
-    return <Badge className="bg-accent/15 text-accent hover:bg-accent/15">Part paid</Badge>;
-  return (
-    <Badge variant="secondary" className={overdue ? "text-destructive" : "text-muted-foreground"}>
-      {overdue ? "Overdue" : "Not paid"}
-    </Badge>
   );
 }
 
